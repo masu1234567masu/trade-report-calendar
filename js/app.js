@@ -72,29 +72,20 @@ el.signinBtn.addEventListener("click", () => {
     log("エラー: 先にOAuthクライアントIDを設定して保存してください");
     return;
   }
-  if (typeof google === "undefined" || !google.accounts) {
-    log("エラー: Googleログイン機能の読み込みに失敗しました。通信環境を確認し、ページを再読み込みしてから試してください");
-    return;
-  }
-  Auth.init(
-    clientId,
-    async (accessToken) => {
-      currentAccessToken = accessToken;
-      SheetsAPI.setAccessToken(accessToken);
-      el.signinBtn.hidden = true;
-      el.signedInArea.hidden = false;
-      el.userEmail.textContent = "ログイン済み";
-      el.readTestBtn.disabled = false;
-      el.writeTestBtn.disabled = false;
-      log("ログインに成功しました");
-      await loadCalendarData();
-    },
-    (error) => {
-      log(`ログインエラー: ${error}`);
-    }
-  );
-  Auth.requestToken();
+  Auth.login(clientId);
 });
+
+async function onLoginSuccess(accessToken) {
+  currentAccessToken = accessToken;
+  SheetsAPI.setAccessToken(accessToken);
+  el.signinBtn.hidden = true;
+  el.signedInArea.hidden = false;
+  el.userEmail.textContent = "ログイン済み";
+  el.readTestBtn.disabled = false;
+  el.writeTestBtn.disabled = false;
+  log("ログインに成功しました");
+  await loadCalendarData();
+}
 
 async function loadCalendarData() {
   const { sheetId, sheetName } = currentSettings();
@@ -209,3 +200,11 @@ loadSettingsIntoForm();
 CalendarView.init();
 EntryModal.init();
 el.signinRequiredMsg.hidden = false;
+
+// Googleのログイン画面から戻ってきた直後であれば、URLからトークンを受け取る。
+const redirectResult = Auth.consumeRedirectResult();
+if (redirectResult && redirectResult.token) {
+  onLoginSuccess(redirectResult.token);
+} else if (redirectResult && redirectResult.error) {
+  log(`ログインエラー: ${redirectResult.error}`);
+}
