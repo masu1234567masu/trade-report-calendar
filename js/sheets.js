@@ -9,7 +9,7 @@ const SheetsAPI = {
   },
 
   async readRange(spreadsheetId, range) {
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`;
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${this.accessToken}` },
     });
@@ -20,8 +20,10 @@ const SheetsAPI = {
     return data.values || [];
   },
 
-  async writeRange(spreadsheetId, range, values) {
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
+  // valueInputOption は既定で RAW。日付や数値の文字列がロケール依存で
+  // 別形式に自動変換されるのを防ぐため、USER_ENTERED は使わない。
+  async writeRange(spreadsheetId, range, values, valueInputOption = "RAW") {
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=${valueInputOption}`;
     const res = await fetch(url, {
       method: "PUT",
       headers: {
@@ -36,8 +38,8 @@ const SheetsAPI = {
     return res.json();
   },
 
-  async appendRange(spreadsheetId, range, values) {
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED`;
+  async appendRange(spreadsheetId, range, values, valueInputOption = "RAW") {
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=${valueInputOption}`;
     const res = await fetch(url, {
       method: "POST",
       headers: {

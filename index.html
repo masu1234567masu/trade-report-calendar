@@ -18,42 +18,108 @@
   </div>
 </header>
 
+<nav class="tab-nav">
+  <button class="tab-btn active" data-tab="home">ホーム</button>
+  <button class="tab-btn" data-tab="graph">グラフ</button>
+  <button class="tab-btn" data-tab="analysis">分析</button>
+</nav>
+
 <main>
-  <section id="settings-panel" class="card">
-    <h2>接続設定</h2>
-    <p class="hint">Google Cloud で発行したOAuthクライアントIDと、データ保存先のスプレッドシートIDを設定してください。ブラウザ内(localStorage)にのみ保存され、コードの変更・再公開は不要です。</p>
-    <label>
-      OAuthクライアントID
-      <input type="text" id="client-id-input" placeholder="xxxxxxxx.apps.googleusercontent.com">
-    </label>
-    <label>
-      スプレッドシートID
-      <input type="text" id="sheet-id-input" placeholder="スプレッドシートURLの /d/ と /edit の間の文字列">
-    </label>
-    <label>
-      シート名
-      <input type="text" id="sheet-name-input" placeholder="Sheet1" value="Sheet1">
-    </label>
-    <button id="save-settings-btn" class="btn btn-primary">保存</button>
-    <span id="settings-saved-msg" class="ok-msg" hidden>保存しました</span>
+  <p id="signin-required-msg" class="hint" hidden>Googleでログインすると、カレンダーが表示されます。</p>
+
+  <section id="tab-home" class="tab-panel">
+    <div class="card" id="calendar-card" hidden>
+      <div class="calendar-header">
+        <button id="calendar-prev-btn" class="btn btn-ghost">←</button>
+        <div class="calendar-title">
+          <span id="calendar-month-label"></span>
+          <span id="calendar-month-total" class="month-total"></span>
+        </div>
+        <button id="calendar-next-btn" class="btn btn-ghost">→</button>
+      </div>
+      <div id="calendar-grid" class="calendar-grid"></div>
+    </div>
   </section>
 
-  <section id="connectivity-panel" class="card">
-    <h2>データ疎通確認</h2>
-    <p class="hint">ログイン後、下のボタンでスプレッドシートの読み書きを確認できます。</p>
-    <div class="btn-row">
-      <button id="read-test-btn" class="btn" disabled>読み込みテスト</button>
-      <button id="write-test-btn" class="btn" disabled>書き込みテスト</button>
+  <section id="tab-graph" class="tab-panel" hidden>
+    <div class="card">
+      <h2>グラフ</h2>
+      <p class="hint">準備中です。次のステップで実装します。</p>
     </div>
-    <table id="read-result-table" hidden></table>
-    <pre id="log-area" class="log-area"></pre>
   </section>
+
+  <section id="tab-analysis" class="tab-panel" hidden>
+    <div class="card">
+      <h2>分析</h2>
+      <p class="hint">準備中です。次のステップで実装します。</p>
+    </div>
+  </section>
+
+  <details id="settings-details">
+    <summary>接続設定・データ疎通確認</summary>
+
+    <section id="settings-panel" class="card">
+      <h2>接続設定</h2>
+      <p class="hint">Google Cloud で発行したOAuthクライアントIDと、データ保存先のスプレッドシートIDを設定してください。ブラウザ内(localStorage)にのみ保存され、コードの変更・再公開は不要です。</p>
+      <label>
+        OAuthクライアントID
+        <input type="text" id="client-id-input" placeholder="xxxxxxxx.apps.googleusercontent.com">
+      </label>
+      <label>
+        スプレッドシートID
+        <input type="text" id="sheet-id-input" placeholder="スプレッドシートURLの /d/ と /edit の間の文字列">
+      </label>
+      <label>
+        シート名
+        <input type="text" id="sheet-name-input" placeholder="Sheet1" value="Sheet1">
+      </label>
+      <button id="save-settings-btn" class="btn btn-primary">保存</button>
+      <span id="settings-saved-msg" class="ok-msg" hidden>保存しました</span>
+    </section>
+
+    <section id="connectivity-panel" class="card">
+      <h2>データ疎通確認</h2>
+      <p class="hint">ログイン後、下のボタンでスプレッドシートの読み書きを確認できます。</p>
+      <div class="btn-row">
+        <button id="read-test-btn" class="btn" disabled>読み込みテスト</button>
+        <button id="write-test-btn" class="btn" disabled>書き込みテスト</button>
+      </div>
+      <table id="read-result-table" hidden></table>
+      <pre id="log-area" class="log-area"></pre>
+    </section>
+  </details>
 </main>
+
+<div id="entry-modal-overlay" class="modal-overlay" hidden>
+  <div class="modal">
+    <h2 id="entry-modal-date"></h2>
+    <label>
+      純資産額
+      <input type="number" id="entry-networth-input" placeholder="例: 1000000">
+    </label>
+    <label>
+      入出金(入金は+、出金は-。無ければ0)
+      <input type="number" id="entry-cashflow-input" placeholder="0">
+    </label>
+    <label>
+      日記
+      <textarea id="entry-diary-input" rows="4" placeholder="その日のトレード日記・振り返り"></textarea>
+    </label>
+    <p id="entry-error-msg" class="error-msg" hidden></p>
+    <div class="btn-row">
+      <button id="entry-save-btn" class="btn btn-primary">保存</button>
+      <button id="entry-cancel-btn" class="btn btn-ghost">キャンセル</button>
+    </div>
+  </div>
+</div>
 
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="js/config.js"></script>
 <script src="js/sheets.js"></script>
 <script src="js/auth.js"></script>
+<script src="js/data.js"></script>
+<script src="js/calendar.js"></script>
+<script src="js/modal.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

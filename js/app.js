@@ -15,7 +15,25 @@ const el = {
   writeTestBtn: document.getElementById("write-test-btn"),
   readResultTable: document.getElementById("read-result-table"),
   logArea: document.getElementById("log-area"),
+  signinRequiredMsg: document.getElementById("signin-required-msg"),
+  calendarCard: document.getElementById("calendar-card"),
+  tabButtons: document.querySelectorAll(".tab-btn"),
+  tabPanels: {
+    home: document.getElementById("tab-home"),
+    graph: document.getElementById("tab-graph"),
+    analysis: document.getElementById("tab-analysis"),
+  },
 };
+
+el.tabButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    el.tabButtons.forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    Object.entries(el.tabPanels).forEach(([name, panel]) => {
+      panel.hidden = name !== btn.dataset.tab;
+    });
+  });
+});
 
 let currentAccessToken = null;
 
@@ -56,7 +74,7 @@ el.signinBtn.addEventListener("click", () => {
   }
   Auth.init(
     clientId,
-    (accessToken) => {
+    async (accessToken) => {
       currentAccessToken = accessToken;
       SheetsAPI.setAccessToken(accessToken);
       el.signinBtn.hidden = true;
@@ -65,6 +83,7 @@ el.signinBtn.addEventListener("click", () => {
       el.readTestBtn.disabled = false;
       el.writeTestBtn.disabled = false;
       log("ログインに成功しました");
+      await loadCalendarData();
     },
     (error) => {
       log(`ログインエラー: ${error}`);
@@ -72,6 +91,25 @@ el.signinBtn.addEventListener("click", () => {
   );
   Auth.requestToken();
 });
+
+async function loadCalendarData() {
+  const { sheetId, sheetName } = currentSettings();
+  if (!sheetId) {
+    log("エラー: スプレッドシートIDを設定してください");
+    return;
+  }
+  try {
+    el.signinRequiredMsg.hidden = true;
+    TradeData.configure(sheetId, sheetName);
+    await TradeData.ensureHeader();
+    await TradeData.loadAll();
+    el.calendarCard.hidden = false;
+    CalendarView.render();
+    log("カレンダーデータを読み込みました");
+  } catch (e) {
+    log(`カレンダー読み込みエラー: ${e.message}`);
+  }
+}
 
 el.signoutBtn.addEventListener("click", () => {
   if (!currentAccessToken) return;
@@ -81,6 +119,8 @@ el.signoutBtn.addEventListener("click", () => {
     el.signedInArea.hidden = true;
     el.readTestBtn.disabled = true;
     el.writeTestBtn.disabled = true;
+    el.calendarCard.hidden = true;
+    el.signinRequiredMsg.hidden = false;
     log("ログアウトしました");
   });
 });
@@ -139,3 +179,6 @@ function renderTable(values) {
 }
 
 loadSettingsIntoForm();
+CalendarView.init();
+EntryModal.init();
+el.signinRequiredMsg.hidden = false;
