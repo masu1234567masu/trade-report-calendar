@@ -11,6 +11,13 @@
 
 * { box-sizing: border-box; }
 
+/* iOS Safariがボタン等をズーム対象の普通のコンテンツとして扱い、
+   タップがクリックとして認識されない(ダブルタップでズームしてしまう)
+   問題への対策。 */
+button, summary, .cal-cell {
+  touch-action: manipulation;
+}
+
 body {
   margin: 0;
   background: var(--bg);
