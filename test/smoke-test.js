@@ -58,6 +58,9 @@ function ok(message) {
     SheetsAPI.setAccessToken("fake-token");
     el.signinBtn.hidden = true;
     el.signedInArea.hidden = false;
+    el.readTestBtn.disabled = false;
+    el.writeTestBtn.disabled = false;
+    el.importBtn.disabled = false;
     await loadCalendarData();
   });
 
@@ -99,6 +102,29 @@ function ok(message) {
   await page.waitForTimeout(200);
   const closedAfterCancel = await page.evaluate(() => document.getElementById("entry-modal-overlay").hidden);
   closedAfterCancel ? ok("キャンセルでモーダルが閉じた") : fail("キャンセルしてもモーダルが閉じない");
+
+  // 過去データ一括インポート。
+  await page.evaluate(() => {
+    window.__bulkWrites = [];
+    SheetsAPI.writeRange = async (id, range, values) => {
+      window.__bulkWrites.push({ range, rowCount: values.length });
+      return {};
+    };
+  });
+  await page.click("#settings-details summary");
+  const importBtnDisabled = await page.evaluate(() => document.getElementById("import-btn").disabled);
+  importBtnDisabled ? fail("ログイン中なのに一括インポートボタンが無効のまま") : ok("一括インポートボタンが有効になっている");
+  await page.click("#import-btn", { timeout: 5000 }).catch((e) => {
+    fail(`一括インポートボタンをタップできない: ${e.message}`);
+  });
+  await page.waitForTimeout(300);
+  const bulkWrites = await page.evaluate(() => window.__bulkWrites);
+  const bulkWrite = bulkWrites.find((w) => w.rowCount > 1);
+  if (bulkWrite && bulkWrite.rowCount === (await page.evaluate(() => IMPORT_ROWS.length))) {
+    ok(`一括インポートで${bulkWrite.rowCount}行を書き込んだ(${bulkWrite.range})`);
+  } else {
+    fail(`一括インポートの書き込み行数が期待と違う: ${JSON.stringify(bulkWrites)}`);
+  }
 
   const relevantErrors = errors.filter(
     (e) => !/accounts\.google\.com|gsi\/client|ERR_CONNECTION|ERR_NAME_NOT_RESOLVED|favicon/.test(e)
