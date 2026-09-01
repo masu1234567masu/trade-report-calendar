@@ -281,14 +281,14 @@ function ok(message) {
 
     const importRowsLength = await page.evaluate(() => IMPORT_ROWS.length);
 
-    await page.click('.period-btn[data-period="all"]');
+    await page.click('#tab-graph .period-btn[data-period="all"]');
     await page.waitForTimeout(200);
     const allPeriodLen = await page.evaluate(() => GraphView.charts.top.data.labels.length);
     allPeriodLen === importRowsLength
       ? ok(`全期間タブでインポート済み${allPeriodLen}行が反映された`)
       : fail(`全期間タブのデータ件数が期待と違う: ${allPeriodLen} (期待値 ${importRowsLength})`);
 
-    await page.click('.metric-btn[data-metric="networth"]');
+    await page.click('#tab-graph .metric-btn[data-metric="networth"]');
     await page.waitForTimeout(200);
     const lastNetWorth = await page.evaluate(() => GraphView.charts.top.data.datasets[0].data.slice(-1)[0]);
     const expectedLastNetWorth = await page.evaluate(() => IMPORT_ROWS[IMPORT_ROWS.length - 1][1]);
@@ -297,51 +297,96 @@ function ok(message) {
       : fail(`総資産トグルの値が期待と違う: ${lastNetWorth} (期待値 ${expectedLastNetWorth})`);
   }
 
-  // 分析画面。
+  // 分析画面(月間/年間/全期間タブ切り替え)。
   await page.click('.tab-btn[data-tab="analysis"]');
   await page.waitForTimeout(300);
-  const analysisOverview = await page.evaluate(() => ({
-    overviewVisible: !document.getElementById("analysis-overview-card").hidden,
-    overviewItemCount: document.getElementById("analysis-overview").children.length,
-  }));
-  analysisOverview.overviewVisible && analysisOverview.overviewItemCount === 14
-    ? ok("分析画面の概要が表示された")
-    : fail(`分析画面の概要が期待通りでない: ${JSON.stringify(analysisOverview)}`);
 
-  await page.click("#analysis-year-list .drilldown-row", { timeout: 5000 }).catch((e) => {
-    fail(`年の一覧行をタップできない: ${e.message}`);
+  // 月間タブ(既定)で、末尾の月(2026年8月、データがある最後の月)へ移動して確認する。
+  await page.evaluate(() => {
+    AnalysisView.cursorDate = new Date(2026, 7, 1); // 8月(0始まり)
+    AnalysisView.render();
   });
   await page.waitForTimeout(200);
-  const afterYearClick = await page.evaluate(() => ({
-    detailVisible: !document.getElementById("analysis-detail-card").hidden,
-    monthRowCount: document.querySelectorAll("#analysis-year-list .drilldown-row-month").length,
-  }));
-  afterYearClick.detailVisible && afterYearClick.monthRowCount > 0
-    ? ok(`年をタップして詳細と月一覧(${afterYearClick.monthRowCount}件)が表示された`)
-    : fail(`年タップ後の表示が期待通りでない: ${JSON.stringify(afterYearClick)}`);
-
-  await page.click("#analysis-year-list .drilldown-row-month", { timeout: 5000 }).catch((e) => {
-    fail(`月の一覧行をタップできない: ${e.message}`);
-  });
-  await page.waitForTimeout(200);
-  const afterMonthClick = await page.evaluate(() => ({
+  const monthTabState = await page.evaluate(() => ({
+    cardVisible: !document.getElementById("analysis-card").hidden,
+    periodLabel: document.getElementById("analysis-period-label").textContent,
+    metricsCount: document.getElementById("analysis-metrics").children.length,
     dayRowCount: document.getElementById("analysis-day-list").children.length,
-    chartExists: !!AnalysisView.chart,
+    chartLabelCount: AnalysisView.chart ? AnalysisView.chart.data.labels.length : 0,
   }));
-  afterMonthClick.dayRowCount > 0 && afterMonthClick.chartExists
-    ? ok(`月をタップして日別一覧(${afterMonthClick.dayRowCount}件)と詳細グラフが表示された`)
-    : fail(`月タップ後の表示が期待通りでない: ${JSON.stringify(afterMonthClick)}`);
+  monthTabState.cardVisible &&
+  monthTabState.periodLabel === "2026年8月" &&
+  monthTabState.metricsCount === 13 &&
+  monthTabState.dayRowCount > 0 &&
+  monthTabState.chartLabelCount === monthTabState.dayRowCount
+    ? ok(`分析画面(月間タブ)に${monthTabState.periodLabel}の指標・日別一覧(${monthTabState.dayRowCount}件)・グラフが表示された`)
+    : fail(`分析画面(月間タブ)の表示が期待通りでない: ${JSON.stringify(monthTabState)}`);
 
-  // 日別一覧の行をタップすると、カレンダーと同じ記帳モーダルが開く(日次ドリルダウン)。
+  // 日別一覧の行をタップすると、カレンダーと同じ記帳モーダルが開く。
   await page.click("#analysis-day-list .drilldown-row-day", { timeout: 5000 }).catch((e) => {
     fail(`日別一覧の行をタップできない: ${e.message}`);
   });
   await page.waitForTimeout(200);
   const dayModalOpened = await page.evaluate(() => !document.getElementById("entry-modal-overlay").hidden);
   dayModalOpened
-    ? ok("分析画面の日別一覧から記帳モーダルが開いた")
+    ? ok("分析画面(月間タブ)の日別一覧から記帳モーダルが開いた")
     : fail("分析画面の日別一覧をタップしても記帳モーダルが開かない");
   await page.click("#entry-cancel-btn");
+
+  // 前月へ移動できるか(月間タブのナビゲーション)。
+  const monthBefore = await page.evaluate(() => document.getElementById("analysis-period-label").textContent);
+  await page.click("#analysis-prev-btn");
+  await page.waitForTimeout(200);
+  const monthAfter = await page.evaluate(() => document.getElementById("analysis-period-label").textContent);
+  monthAfter === "2026年7月" && monthAfter !== monthBefore
+    ? ok(`月間タブの前月ナビゲーションが動いた(${monthBefore} → ${monthAfter})`)
+    : fail(`月間タブの前月ナビゲーションが期待通りでない: ${monthBefore} → ${monthAfter}`);
+
+  // 年間タブ。
+  await page.click('#tab-analysis .period-btn[data-period="year"]');
+  await page.waitForTimeout(200);
+  await page.evaluate(() => {
+    AnalysisView.cursorDate = new Date(2026, 0, 1);
+    AnalysisView.render();
+  });
+  await page.waitForTimeout(200);
+  const yearTabState = await page.evaluate(() => ({
+    periodLabel: document.getElementById("analysis-period-label").textContent,
+    metricsCount: document.getElementById("analysis-metrics").children.length,
+    monthRowCount: document.getElementById("analysis-month-list").children.length,
+  }));
+  yearTabState.periodLabel === "2026年" && yearTabState.metricsCount === 13 && yearTabState.monthRowCount > 0
+    ? ok(`分析画面(年間タブ)に${yearTabState.periodLabel}の指標・月別内訳(${yearTabState.monthRowCount}件)が表示された`)
+    : fail(`分析画面(年間タブ)の表示が期待通りでない: ${JSON.stringify(yearTabState)}`);
+
+  // 年間タブの月一覧をタップすると、月間タブへ飛んでその月が表示される。
+  await page.click("#analysis-month-list .drilldown-row-month", { timeout: 5000 }).catch((e) => {
+    fail(`年間タブの月一覧行をタップできない: ${e.message}`);
+  });
+  await page.waitForTimeout(200);
+  const afterMonthJump = await page.evaluate(() => ({
+    activePeriod: document.querySelector('#tab-analysis .period-btn.active').dataset.period,
+    periodLabel: document.getElementById("analysis-period-label").textContent,
+  }));
+  afterMonthJump.activePeriod === "month" && /^2026年1月$/.test(afterMonthJump.periodLabel)
+    ? ok(`年間タブの月一覧から月間タブ(${afterMonthJump.periodLabel})へ飛んだ`)
+    : fail(`月一覧タップ後の状態が期待通りでない: ${JSON.stringify(afterMonthJump)}`);
+
+  // 全期間タブ。
+  await page.click('#tab-analysis .period-btn[data-period="all"]');
+  await page.waitForTimeout(200);
+  const allTabState = await page.evaluate(() => ({
+    navVisibility: getComputedStyle(document.getElementById("analysis-nav")).visibility,
+    metricsCount: document.getElementById("analysis-metrics").children.length,
+    monthListEmpty: document.getElementById("analysis-month-list").children.length === 0,
+    dayListEmpty: document.getElementById("analysis-day-list").children.length === 0,
+  }));
+  allTabState.navVisibility === "hidden" &&
+  allTabState.metricsCount === 14 &&
+  allTabState.monthListEmpty &&
+  allTabState.dayListEmpty
+    ? ok("分析画面(全期間タブ)に概要指標が表示され、ナビゲーションは隠れた")
+    : fail(`分析画面(全期間タブ)の表示が期待通りでない: ${JSON.stringify(allTabState)}`);
 
   const relevantErrors = errors.filter(
     (e) => !/accounts\.google\.com|gsi\/client|ERR_CONNECTION|ERR_NAME_NOT_RESOLVED|favicon/.test(e)

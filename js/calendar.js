@@ -34,6 +34,7 @@ const CalendarView = {
   el: {
     monthLabel: document.getElementById("calendar-month-label"),
     monthTotal: document.getElementById("calendar-month-total"),
+    netWorth: document.getElementById("calendar-net-worth"),
     grid: document.getElementById("calendar-grid"),
     prevBtn: document.getElementById("calendar-prev-btn"),
     nextBtn: document.getElementById("calendar-next-btn"),
@@ -119,5 +120,11 @@ const CalendarView = {
 
     this.el.monthTotal.textContent = hasAny ? formatYen(monthTotal) : "記録なし";
     this.el.monthTotal.className = "month-total " + (monthTotal >= 0 ? "profit" : "loss");
+
+    // 総資産は表示中の月に関わらず、記帳済みの最新の値(現状)を出す。
+    const sortedEntries = TradeData.getSortedEntries();
+    this.el.netWorth.textContent = sortedEntries.length
+      ? `総資産: ${sortedEntries[sortedEntries.length - 1].netWorth.toLocaleString("ja-JP")}円`
+      : "";
   },
 };

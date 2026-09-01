@@ -1,4 +1,6 @@
-// 分析画面: 年→月→日のドリルダウン一覧 + 全期間の概要指標 + 選択期間の詳細指標とグラフ。
+// 分析画面: 月間/年間/全期間のタブ切り替え(グラフ画面と同じUI) + 各期間の指標とグラフ。
+// 月間・年間タブは前後の期間へナビゲーションでき、月間タブでは日別一覧から
+// カレンダーと同じ記帳モーダルを開ける。
 //
 // 損益(pl)はTradeData側で「純資産額が記録されている直近の記帳日との差分」として
 // 計算済み(js/data.js参照)。ここではその値を使って集計するだけで、独自に
@@ -25,7 +27,7 @@ function pctColorClass(n) {
 }
 
 // 指定した記帳エントリ群(日付昇順)から集計指標を計算する。
-// 期間全体(概要)にも、年・月単位の期間詳細にも同じロジックを使う。
+// 全期間にも、年・月単位の期間詳細にも同じロジックを使う。
 function computeMetrics(entries) {
   const withPL = entries.filter((e) => e.pl !== null);
   const totalPL = withPL.reduce((sum, e) => sum + e.pl, 0);
@@ -93,49 +95,94 @@ function pad2(n) {
 }
 
 const AnalysisView = {
-  selectedYear: null,
-  selectedMonth: null,
+  periodType: "month", // month | year | all
+  cursorDate: null,
+  chart: null,
 
   el: {
     signinMsg: document.getElementById("analysis-signin-msg"),
     emptyMsg: document.getElementById("analysis-empty-msg"),
-    overviewCard: document.getElementById("analysis-overview-card"),
-    overview: document.getElementById("analysis-overview"),
-    drilldownCard: document.getElementById("analysis-drilldown-card"),
-    yearList: document.getElementById("analysis-year-list"),
-    detailCard: document.getElementById("analysis-detail-card"),
-    detailTitle: document.getElementById("analysis-detail-title"),
-    detailMetrics: document.getElementById("analysis-detail-metrics"),
-    detailCanvas: document.getElementById("analysis-detail-canvas"),
+    card: document.getElementById("analysis-card"),
+    periodBtns: document.querySelectorAll("#tab-analysis .period-btn"),
+    navRow: document.getElementById("analysis-nav"),
+    prevBtn: document.getElementById("analysis-prev-btn"),
+    nextBtn: document.getElementById("analysis-next-btn"),
+    periodLabel: document.getElementById("analysis-period-label"),
+    metrics: document.getElementById("analysis-metrics"),
+    canvas: document.getElementById("analysis-canvas"),
+    monthList: document.getElementById("analysis-month-list"),
     dayList: document.getElementById("analysis-day-list"),
   },
 
-  chart: null,
+  init() {
+    this.cursorDate = new Date();
 
-  init() {},
+    this.el.periodBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        this.el.periodBtns.forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        this.periodType = btn.dataset.period;
+        this.render();
+      });
+    });
+
+    this.el.prevBtn.addEventListener("click", () => this.shift(-1));
+    this.el.nextBtn.addEventListener("click", () => this.shift(1));
+  },
+
+  shift(diff) {
+    const d = new Date(this.cursorDate);
+    if (this.periodType === "month") d.setMonth(d.getMonth() + diff);
+    else if (this.periodType === "year") d.setFullYear(d.getFullYear() + diff);
+    this.cursorDate = d;
+    this.render();
+  },
+
+  // 年間タブの月一覧から特定の月へ飛ぶ(月間タブに切り替えてその月を表示)。
+  jumpToMonth(year, month) {
+    this.periodType = "month";
+    this.cursorDate = new Date(year, month - 1, 1);
+    this.el.periodBtns.forEach((b) => b.classList.toggle("active", b.dataset.period === "month"));
+    this.render();
+  },
 
   render() {
     const entries = TradeData.getSortedEntries();
 
     if (entries.length === 0) {
       this.el.emptyMsg.hidden = false;
-      this.el.overviewCard.hidden = true;
-      this.el.drilldownCard.hidden = true;
-      this.el.detailCard.hidden = true;
+      this.el.card.hidden = true;
       return;
     }
     this.el.emptyMsg.hidden = true;
-    this.el.overviewCard.hidden = false;
-    this.el.drilldownCard.hidden = false;
+    this.el.card.hidden = false;
+    this.el.navRow.style.visibility = this.periodType === "all" ? "hidden" : "visible";
 
-    this._renderOverview(entries);
-    this._renderYearList(entries);
+    if (this.periodType === "all") {
+      this.el.periodLabel.textContent = "全期間";
+      this._renderOverview(entries);
+      this._renderChart(entries);
+      this.el.monthList.innerHTML = "";
+      this.el.dayList.innerHTML = "";
+      return;
+    }
 
-    if (this.selectedYear) {
-      this._renderDetail(entries);
-      this.el.detailCard.hidden = false;
+    const y = this.cursorDate.getFullYear();
+    if (this.periodType === "year") {
+      this.el.periodLabel.textContent = `${y}年`;
+      const periodEntries = entries.filter((e) => e.date.startsWith(`${y}-`));
+      this._renderDetail(entries, periodEntries);
+      this._renderChart(periodEntries);
+      this._renderMonthList(y, entries);
+      this.el.dayList.innerHTML = "";
     } else {
-      this.el.detailCard.hidden = true;
+      const m = this.cursorDate.getMonth() + 1;
+      this.el.periodLabel.textContent = `${y}年${m}月`;
+      const periodEntries = entries.filter((e) => e.date.startsWith(`${y}-${pad2(m)}`));
+      this._renderDetail(entries, periodEntries);
+      this._renderChart(periodEntries);
+      this.el.monthList.innerHTML = "";
+      this._renderDayList(periodEntries);
     }
   },
 
@@ -153,6 +200,7 @@ const AnalysisView = {
     return item;
   },
 
+  // 全期間タブ: 口座全体の概要指標。
   _renderOverview(entries) {
     const m = computeMetrics(entries);
     const currentNetWorth = entries[entries.length - 1].netWorth;
@@ -172,13 +220,13 @@ const AnalysisView = {
     const yearReturnPct = periodReturnPct(entries, yearEntries, yearMetrics.totalPL);
     const monthReturnPct = periodReturnPct(entries, monthEntries, monthMetrics.totalPL);
 
-    const wrap = this.el.overview;
+    const wrap = this.el.metrics;
     wrap.innerHTML = "";
     const rows = [
       ["総資産", formatYen(currentNetWorth).replace(/^\+/, ""), null],
       ["総リターン", formatPct(totalReturnPct), pctColorClass(totalReturnPct)],
-      ["年間パフォーマンス", formatPct(yearReturnPct), pctColorClass(yearReturnPct)],
-      ["月間パフォーマンス", formatPct(monthReturnPct), pctColorClass(monthReturnPct)],
+      ["今年のパフォーマンス", formatPct(yearReturnPct), pctColorClass(yearReturnPct)],
+      ["今月のパフォーマンス", formatPct(monthReturnPct), pctColorClass(monthReturnPct)],
       ["総利益", formatYen(m.grossProfit), "profit"],
       ["総損失", formatYen(m.grossLoss), "loss"],
       ["総入金", formatYen(m.totalDeposit), null],
@@ -193,75 +241,13 @@ const AnalysisView = {
     rows.forEach(([label, value, colorClass]) => wrap.appendChild(this._metricItem(label, value, colorClass)));
   },
 
-  _renderYearList(entries) {
-    const byYear = new Map();
-    entries.forEach((e) => {
-      const year = e.date.slice(0, 4);
-      if (!byYear.has(year)) byYear.set(year, []);
-      byYear.get(year).push(e);
-    });
-    const years = Array.from(byYear.keys()).sort().reverse();
-
-    const list = this.el.yearList;
-    list.innerHTML = "";
-
-    years.forEach((year) => {
-      const yearEntries = byYear.get(year);
-      const yearMetrics = computeMetrics(yearEntries);
-
-      const row = document.createElement("button");
-      row.className = "drilldown-row" + (this.selectedYear === year && !this.selectedMonth ? " active" : "");
-      row.innerHTML = `<span>${year}年</span><span class="${yearMetrics.totalPL >= 0 ? "profit" : "loss"}">${formatYen(yearMetrics.totalPL)}</span>`;
-      row.addEventListener("click", () => this.selectYear(year));
-      list.appendChild(row);
-
-      if (this.selectedYear === year) {
-        const byMonth = new Map();
-        yearEntries.forEach((e) => {
-          const month = e.date.slice(5, 7);
-          if (!byMonth.has(month)) byMonth.set(month, []);
-          byMonth.get(month).push(e);
-        });
-        const months = Array.from(byMonth.keys()).sort().reverse();
-
-        months.forEach((month) => {
-          const monthEntries = byMonth.get(month);
-          const monthMetrics = computeMetrics(monthEntries);
-
-          const monthRow = document.createElement("button");
-          monthRow.className = "drilldown-row drilldown-row-month" + (this.selectedMonth === month ? " active" : "");
-          monthRow.innerHTML = `<span>${parseInt(month, 10)}月</span><span class="${monthMetrics.totalPL >= 0 ? "profit" : "loss"}">${formatYen(monthMetrics.totalPL)}</span>`;
-          monthRow.addEventListener("click", () => this.selectMonth(year, month));
-          list.appendChild(monthRow);
-        });
-      }
-    });
-  },
-
-  selectYear(year) {
-    this.selectedYear = this.selectedYear === year && !this.selectedMonth ? null : year;
-    this.selectedMonth = null;
-    this.render();
-  },
-
-  selectMonth(year, month) {
-    this.selectedYear = year;
-    this.selectedMonth = this.selectedMonth === month ? null : month;
-    this.render();
-  },
-
-  _renderDetail(entries) {
-    const prefix = this.selectedMonth ? `${this.selectedYear}-${this.selectedMonth}` : `${this.selectedYear}-`;
-    const periodEntries = entries.filter((e) => e.date.startsWith(prefix));
+  // 月間・年間タブ共通: 選択中の期間の詳細指標。
+  _renderDetail(fullEntries, periodEntries) {
     const m = computeMetrics(periodEntries);
     const avgProfit = m.winCount ? m.grossProfit / m.winCount : 0;
     const avgLoss = m.lossCount ? m.grossLoss / m.lossCount : 0;
 
-    this.el.detailTitle.textContent = this.selectedMonth
-      ? `${this.selectedYear}年${parseInt(this.selectedMonth, 10)}月の詳細`
-      : `${this.selectedYear}年の詳細`;
-
-    const wrap = this.el.detailMetrics;
+    const wrap = this.el.metrics;
     wrap.innerHTML = "";
     const rows = [
       ["総損益", formatYen(m.totalPL), m.totalPL >= 0 ? "profit" : "loss"],
@@ -279,12 +265,48 @@ const AnalysisView = {
       ["最大ドローダウン", formatYen(m.maxDrawdown), "loss"],
     ];
     rows.forEach(([label, value, colorClass]) => wrap.appendChild(this._metricItem(label, value, colorClass)));
-
-    this._renderDetailChart(periodEntries);
-    this._renderDayList(periodEntries);
   },
 
-  _renderDetailChart(periodEntries) {
+  // 年間タブ: その年の月別内訳。タップすると月間タブへ飛ぶ。
+  _renderMonthList(year, entries) {
+    const byMonth = new Map();
+    entries
+      .filter((e) => e.date.startsWith(`${year}-`))
+      .forEach((e) => {
+        const month = e.date.slice(5, 7);
+        if (!byMonth.has(month)) byMonth.set(month, []);
+        byMonth.get(month).push(e);
+      });
+    const months = Array.from(byMonth.keys()).sort();
+
+    const list = this.el.monthList;
+    list.innerHTML = "";
+    months.forEach((month) => {
+      const monthMetrics = computeMetrics(byMonth.get(month));
+      const row = document.createElement("button");
+      row.className = "drilldown-row drilldown-row-month";
+      row.innerHTML = `<span>${parseInt(month, 10)}月</span><span class="${monthMetrics.totalPL >= 0 ? "profit" : "loss"}">${formatYen(monthMetrics.totalPL)}</span>`;
+      row.addEventListener("click", () => this.jumpToMonth(year, parseInt(month, 10)));
+      list.appendChild(row);
+    });
+  },
+
+  // 月間タブ: 日別一覧。タップするとカレンダーと同じ記帳モーダルを開く。
+  _renderDayList(periodEntries) {
+    const list = this.el.dayList;
+    list.innerHTML = "";
+    periodEntries.forEach((e) => {
+      const row = document.createElement("button");
+      row.className = "drilldown-row drilldown-row-day";
+      const plText = e.pl !== null ? formatYen(e.pl) : "-";
+      const plClass = e.pl !== null && e.pl >= 0 ? "profit" : e.pl !== null ? "loss" : "drilldown-row-label";
+      row.innerHTML = `<span>${e.date}</span><span class="${plClass}">${plText}</span>`;
+      row.addEventListener("click", () => EntryModal.open(e.date));
+      list.appendChild(row);
+    });
+  },
+
+  _renderChart(periodEntries) {
     if (typeof Chart === "undefined") return;
     let cum = 0;
     const labels = periodEntries.map((e) => e.date);
@@ -294,7 +316,7 @@ const AnalysisView = {
     });
 
     if (this.chart) this.chart.destroy();
-    this.chart = new Chart(this.el.detailCanvas.getContext("2d"), {
+    this.chart = new Chart(this.el.canvas.getContext("2d"), {
       type: "line",
       data: {
         labels,
@@ -311,24 +333,6 @@ const AnalysisView = {
         ],
       },
       options: GraphView._commonOptions(),
-    });
-  },
-
-  // 月を選択しているときだけ、その月の日別一覧を表示する(年のみ選択時は月一覧が
-  // 既に上のドリルダウンリストに出ているため、ここでは出さない)。
-  _renderDayList(periodEntries) {
-    const list = this.el.dayList;
-    list.innerHTML = "";
-    if (!this.selectedMonth) return;
-
-    periodEntries.forEach((e) => {
-      const row = document.createElement("button");
-      row.className = "drilldown-row drilldown-row-day";
-      const plText = e.pl !== null ? formatYen(e.pl) : "-";
-      const plClass = e.pl !== null && e.pl >= 0 ? "profit" : e.pl !== null ? "loss" : "drilldown-row-label";
-      row.innerHTML = `<span>${e.date}</span><span class="${plClass}">${plText}</span>`;
-      row.addEventListener("click", () => EntryModal.open(e.date));
-      list.appendChild(row);
     });
   },
 };

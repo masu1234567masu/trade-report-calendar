@@ -202,9 +202,7 @@ function resetToLoggedOut(reasonLog) {
   el.graphCard.hidden = true;
   el.graphSigninMsg.hidden = false;
   el.analysisSigninMsg.hidden = false;
-  document.getElementById("analysis-overview-card").hidden = true;
-  document.getElementById("analysis-drilldown-card").hidden = true;
-  document.getElementById("analysis-detail-card").hidden = true;
+  document.getElementById("analysis-card").hidden = true;
   if (reasonLog) log(reasonLog);
 }
 

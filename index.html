@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>トレード収支管理</title>
-<link rel="stylesheet" href="css/style.css?v=12">
+<link rel="stylesheet" href="css/style.css?v=13">
 </head>
 <body>
 <header class="app-header">
@@ -35,6 +35,7 @@
         <div class="calendar-title">
           <span id="calendar-month-label"></span>
           <span id="calendar-month-total" class="month-total"></span>
+          <span id="calendar-net-worth" class="net-worth-label"></span>
         </div>
         <button id="calendar-next-btn" class="btn btn-ghost">→</button>
       </div>
@@ -77,22 +78,23 @@
     <p id="analysis-signin-msg" class="hint">Googleでログインすると、分析が表示されます。</p>
     <p id="analysis-empty-msg" class="hint" hidden>データがありません。</p>
 
-    <div class="card" id="analysis-overview-card" hidden>
-      <h2>概要(全期間)</h2>
-      <div id="analysis-overview" class="metrics-grid"></div>
-    </div>
-
-    <div class="card" id="analysis-drilldown-card" hidden>
-      <h2>年別・月別</h2>
-      <div id="analysis-year-list" class="drilldown-list"></div>
-    </div>
-
-    <div class="card" id="analysis-detail-card" hidden>
-      <h2 id="analysis-detail-title"></h2>
-      <div id="analysis-detail-metrics" class="metrics-grid"></div>
-      <div class="graph-canvas-wrap">
-        <canvas id="analysis-detail-canvas"></canvas>
+    <div class="card" id="analysis-card" hidden>
+      <div class="period-tabs">
+        <button class="period-btn active" data-period="month">月間</button>
+        <button class="period-btn" data-period="year">年間</button>
+        <button class="period-btn" data-period="all">全期間</button>
       </div>
+      <div class="graph-nav" id="analysis-nav">
+        <button id="analysis-prev-btn" class="btn btn-ghost">←</button>
+        <span id="analysis-period-label"></span>
+        <button id="analysis-next-btn" class="btn btn-ghost">→</button>
+      </div>
+
+      <div id="analysis-metrics" class="metrics-grid"></div>
+      <div class="graph-canvas-wrap">
+        <canvas id="analysis-canvas"></canvas>
+      </div>
+      <div id="analysis-month-list" class="drilldown-list"></div>
       <div id="analysis-day-list" class="drilldown-list"></div>
     </div>
   </section>
@@ -162,18 +164,18 @@
   </div>
 </div>
 
-<footer class="build-footer">build: 2026-09-01-calendar-width-12</footer>
+<footer class="build-footer">build: 2026-09-01-analysis-tabs-13</footer>
 
-<script src="js/vendor/chart.umd.js?v=12"></script>
-<script src="tools/import/import-data.js?v=12"></script>
-<script src="js/config.js?v=12"></script>
-<script src="js/sheets.js?v=12"></script>
-<script src="js/auth.js?v=12"></script>
-<script src="js/data.js?v=12"></script>
-<script src="js/calendar.js?v=12"></script>
-<script src="js/modal.js?v=12"></script>
-<script src="js/graph.js?v=12"></script>
-<script src="js/analysis.js?v=12"></script>
-<script src="js/app.js?v=12"></script>
+<script src="js/vendor/chart.umd.js?v=13"></script>
+<script src="tools/import/import-data.js?v=13"></script>
+<script src="js/config.js?v=13"></script>
+<script src="js/sheets.js?v=13"></script>
+<script src="js/auth.js?v=13"></script>
+<script src="js/data.js?v=13"></script>
+<script src="js/calendar.js?v=13"></script>
+<script src="js/modal.js?v=13"></script>
+<script src="js/graph.js?v=13"></script>
+<script src="js/analysis.js?v=13"></script>
+<script src="js/app.js?v=13"></script>
 </body>
 </html>

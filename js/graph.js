@@ -17,8 +17,8 @@ const GraphView = {
   el: {
     card: document.getElementById("graph-card"),
     signinMsg: document.getElementById("graph-signin-msg"),
-    periodBtns: document.querySelectorAll(".period-btn"),
-    metricBtns: document.querySelectorAll(".metric-btn"),
+    periodBtns: document.querySelectorAll("#tab-graph .period-btn"),
+    metricBtns: document.querySelectorAll("#tab-graph .metric-btn"),
     navRow: document.getElementById("graph-nav"),
     prevBtn: document.getElementById("graph-prev-btn"),
     nextBtn: document.getElementById("graph-next-btn"),

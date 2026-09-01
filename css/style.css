@@ -228,6 +228,11 @@ table th, table td {
   font-weight: 600;
 }
 
+.net-worth-label {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
 /* 土日は取引が無く損益は常に0のため、列幅を狭くして平日側に幅を回している。
    列の順番は cal-weekday と揃えること(日,月,火,水,木,金,土)。 */
 .calendar-grid {
