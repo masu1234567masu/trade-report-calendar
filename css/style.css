@@ -124,6 +124,12 @@ input[type="text"] {
   color: var(--text-dim);
 }
 
+/* display:flexの指定がhidden属性(display:none)を上書きしてしまうため、
+   hidden時は明示的にdisplay:noneへ戻す。 */
+#signed-in-area[hidden] {
+  display: none;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -280,6 +286,12 @@ table th, table td {
   justify-content: center;
   padding: 20px;
   z-index: 100;
+}
+
+/* display:flexの指定がhidden属性(display:none)を上書きしてしまい、
+   非表示のはずのモーダルが画面全体のクリックを奪っていた不具合の修正。 */
+.modal-overlay[hidden] {
+  display: none;
 }
 
 .modal {
