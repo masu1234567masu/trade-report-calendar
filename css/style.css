@@ -228,9 +228,11 @@ table th, table td {
   font-weight: 600;
 }
 
+/* 土日は取引が無く損益は常に0のため、列幅を狭くして平日側に幅を回している。
+   列の順番は cal-weekday と揃えること(日,月,火,水,木,金,土)。 */
 .calendar-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: 0.85fr repeat(5, 1.06fr) 0.85fr;
   gap: 4px;
 }
 
@@ -242,15 +244,15 @@ table th, table td {
 }
 
 .cal-cell {
-  aspect-ratio: 1;
+  min-height: 44px;
   border-radius: 8px;
   background: var(--bg);
   border: 1px solid var(--border);
-  padding: 6px;
+  padding: 4px 3px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
 }
 
@@ -269,9 +271,11 @@ table th, table td {
 }
 
 .cal-pl {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 600;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
 }
 
 .cal-cell-profit {
@@ -330,7 +334,7 @@ table th, table td {
 }
 
 @media (max-width: 480px) {
-  .cal-pl { font-size: 0.6rem; }
+  .cal-pl { font-size: 0.52rem; }
 }
 
 #global-status {

@@ -234,6 +234,34 @@ function ok(message) {
     fail(`一括インポートの書き込み行数が期待と違う: ${JSON.stringify(bulkWrites)}`);
   }
 
+  // カレンダーの日次損益が折り返し・はみ出しなく1行に収まっているか。
+  // インポート済み494日分(まれに土日でも損益が付く日を含む)すべての月を確認する。
+  await page.evaluate(() => loadCalendarData());
+  await page.waitForTimeout(200);
+  const calendarFitIssues = await page.evaluate(() => {
+    const results = [];
+    const entries = TradeData.getSortedEntries();
+    const seen = new Set();
+    entries.forEach((e) => {
+      const [y, m] = e.date.split("-").map(Number);
+      const key = `${y}-${m}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      CalendarView.currentYear = y;
+      CalendarView.currentMonth = m;
+      CalendarView.render();
+      document.querySelectorAll(".cal-pl").forEach((el) => {
+        if (el.scrollWidth > el.getBoundingClientRect().width + 0.5) {
+          results.push({ y, m, text: el.textContent });
+        }
+      });
+    });
+    return results;
+  });
+  calendarFitIssues.length === 0
+    ? ok("カレンダーの日次損益が全期間ではみ出し・折り返しなく表示された")
+    : fail(`カレンダーではみ出しているセルがある: ${JSON.stringify(calendarFitIssues)}`);
+
   // グラフ画面。
   await page.click('.tab-btn[data-tab="graph"]');
   await page.waitForTimeout(300);

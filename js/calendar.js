@@ -10,6 +10,23 @@ function formatYen(n) {
   return `${sign}${rounded.toLocaleString("ja-JP")}円`;
 }
 
+// カレンダーの日付マスは幅が狭いため、「円」を付けない簡易表記を使う
+// (アプリ全体が金額を扱うので、単位が無くても文脈で分かる)。
+function formatYenCompact(n) {
+  const rounded = Math.round(n);
+  const sign = rounded > 0 ? "+" : "";
+  return `${sign}${rounded.toLocaleString("ja-JP")}`;
+}
+
+// 要素がその幅に収まりきらない場合だけ、収まるまで少しずつ文字を縮小する。
+function shrinkToFit(el) {
+  let size = parseFloat(getComputedStyle(el).fontSize);
+  while (el.scrollWidth > el.clientWidth && size > 6) {
+    size -= 0.5;
+    el.style.fontSize = size + "px";
+  }
+}
+
 const CalendarView = {
   currentYear: null,
   currentMonth: null,
@@ -80,11 +97,12 @@ const CalendarView = {
       dayNum.textContent = d;
       cell.appendChild(dayNum);
 
+      let plEl = null;
       if (entry && entry.pl !== null && entry.pl !== undefined) {
-        const plEl = document.createElement("div");
+        plEl = document.createElement("div");
         const isProfit = entry.pl >= 0;
         plEl.className = "cal-pl " + (isProfit ? "profit" : "loss");
-        plEl.textContent = formatYen(entry.pl);
+        plEl.textContent = formatYenCompact(entry.pl);
         cell.appendChild(plEl);
         cell.classList.add(isProfit ? "cal-cell-profit" : "cal-cell-loss");
         monthTotal += entry.pl;
@@ -93,6 +111,10 @@ const CalendarView = {
 
       cell.addEventListener("click", () => EntryModal.open(dateStr));
       grid.appendChild(cell);
+      // 土日は狭い列幅にしているため(平日側を広げるため)、稀に金額が入る
+      // 土日のセルだけは入りきらず欠けることがある。収まらない場合だけ
+      // 文字を縮小する(通常の平日セルには影響しない)。
+      if (plEl) shrinkToFit(plEl);
     }
 
     this.el.monthTotal.textContent = hasAny ? formatYen(monthTotal) : "記録なし";
