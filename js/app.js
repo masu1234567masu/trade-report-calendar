@@ -13,6 +13,8 @@ const el = {
   settingsSavedMsg: document.getElementById("settings-saved-msg"),
   readTestBtn: document.getElementById("read-test-btn"),
   writeTestBtn: document.getElementById("write-test-btn"),
+  importBtn: document.getElementById("import-btn"),
+  importSummary: document.getElementById("import-summary"),
   readResultTable: document.getElementById("read-result-table"),
   logArea: document.getElementById("log-area"),
   signinRequiredMsg: document.getElementById("signin-required-msg"),
@@ -102,6 +104,7 @@ async function onLoginSuccess(accessToken) {
   el.userEmail.textContent = "ログイン済み";
   el.readTestBtn.disabled = false;
   el.writeTestBtn.disabled = false;
+  el.importBtn.disabled = false;
   log("ログインに成功しました");
   await loadCalendarData();
 }
@@ -136,6 +139,7 @@ function resetToLoggedOut(reasonLog) {
   el.signedInArea.hidden = true;
   el.readTestBtn.disabled = true;
   el.writeTestBtn.disabled = true;
+  el.importBtn.disabled = true;
   el.calendarCard.hidden = true;
   el.signinRequiredMsg.hidden = false;
   if (reasonLog) log(reasonLog);
@@ -194,6 +198,41 @@ el.writeTestBtn.addEventListener("click", async () => {
       return;
     }
     log(`書き込みエラー: ${e.message}`);
+  }
+});
+
+el.importSummary.textContent =
+  `対象: ${IMPORT_ROWS.length}行(${IMPORT_ROWS[0][0]} 〜 ${IMPORT_ROWS[IMPORT_ROWS.length - 1][0]})。` +
+  "列: 日付/純資産額/入出金/損益(空欄・アプリ側で都度計算)/日記。";
+
+el.importBtn.addEventListener("click", async () => {
+  const { sheetId, sheetName } = currentSettings();
+  if (!sheetId) {
+    log("エラー: スプレッドシートIDを設定してください");
+    return;
+  }
+  el.importBtn.disabled = true;
+  try {
+    const startRow = 2;
+    const endRow = startRow + IMPORT_ROWS.length - 1;
+    const targetRange = `${sheetName}!A${startRow}:E${endRow}`;
+
+    log("ヘッダー行を書き込み中...");
+    await SheetsAPI.writeRange(sheetId, `${sheetName}!A1:E1`, [["日付", "純資産額", "入出金", "損益", "日記"]]);
+
+    log(`${IMPORT_ROWS.length}行を書き込み中... (${targetRange})`);
+    await SheetsAPI.writeRange(sheetId, targetRange, IMPORT_ROWS);
+
+    log("インポート完了。カレンダーを再読み込みします");
+    await loadCalendarData();
+  } catch (e) {
+    if (isAuthError(e.message)) {
+      handleAuthExpired();
+      return;
+    }
+    showGlobalError(`インポートエラー: ${e.message}`);
+  } finally {
+    el.importBtn.disabled = false;
   }
 });
 
