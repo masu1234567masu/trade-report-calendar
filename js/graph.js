@@ -90,7 +90,12 @@ const GraphView = {
   },
 
   render() {
-    if (typeof Chart === "undefined") return;
+    if (typeof Chart === "undefined") {
+      this.el.emptyMsg.textContent = "グラフ描画ライブラリの読み込みに失敗しました。通信環境を確認し、ページを再読み込みしてください。";
+      this.el.emptyMsg.hidden = false;
+      return;
+    }
+    this.el.emptyMsg.textContent = "この期間のデータはありません。";
 
     const { from, to, label } = this.computeRange();
     this.el.periodLabel.textContent = label;
