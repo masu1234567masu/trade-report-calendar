@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>トレード収支管理</title>
-<link rel="stylesheet" href="css/style.css?v=8">
+<link rel="stylesheet" href="css/style.css?v=9">
 </head>
 <body>
 <header class="app-header">
@@ -74,9 +74,26 @@
   </section>
 
   <section id="tab-analysis" class="tab-panel" hidden>
-    <div class="card">
-      <h2>分析</h2>
-      <p class="hint">準備中です。次のステップで実装します。</p>
+    <p id="analysis-signin-msg" class="hint">Googleでログインすると、分析が表示されます。</p>
+    <p id="analysis-empty-msg" class="hint" hidden>データがありません。</p>
+
+    <div class="card" id="analysis-overview-card" hidden>
+      <h2>概要(全期間)</h2>
+      <div id="analysis-overview" class="metrics-grid"></div>
+    </div>
+
+    <div class="card" id="analysis-drilldown-card" hidden>
+      <h2>年別・月別</h2>
+      <div id="analysis-year-list" class="drilldown-list"></div>
+    </div>
+
+    <div class="card" id="analysis-detail-card" hidden>
+      <h2 id="analysis-detail-title"></h2>
+      <div id="analysis-detail-metrics" class="metrics-grid"></div>
+      <div class="graph-canvas-wrap">
+        <canvas id="analysis-detail-canvas"></canvas>
+      </div>
+      <div id="analysis-day-list" class="drilldown-list"></div>
     </div>
   </section>
 
@@ -145,17 +162,18 @@
   </div>
 </div>
 
-<footer class="build-footer">build: 2026-09-01-loaderror-visible-8</footer>
+<footer class="build-footer">build: 2026-09-01-analysis-view-9</footer>
 
-<script src="js/vendor/chart.umd.js?v=8"></script>
-<script src="tools/import/import-data.js?v=8"></script>
-<script src="js/config.js?v=8"></script>
-<script src="js/sheets.js?v=8"></script>
-<script src="js/auth.js?v=8"></script>
-<script src="js/data.js?v=8"></script>
-<script src="js/calendar.js?v=8"></script>
-<script src="js/modal.js?v=8"></script>
-<script src="js/graph.js?v=8"></script>
-<script src="js/app.js?v=8"></script>
+<script src="js/vendor/chart.umd.js?v=9"></script>
+<script src="tools/import/import-data.js?v=9"></script>
+<script src="js/config.js?v=9"></script>
+<script src="js/sheets.js?v=9"></script>
+<script src="js/auth.js?v=9"></script>
+<script src="js/data.js?v=9"></script>
+<script src="js/calendar.js?v=9"></script>
+<script src="js/modal.js?v=9"></script>
+<script src="js/graph.js?v=9"></script>
+<script src="js/analysis.js?v=9"></script>
+<script src="js/app.js?v=9"></script>
 </body>
 </html>

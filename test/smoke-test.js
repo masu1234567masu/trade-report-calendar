@@ -214,6 +214,52 @@ function ok(message) {
       : fail(`総資産トグルの値が期待と違う: ${lastNetWorth} (期待値 ${expectedLastNetWorth})`);
   }
 
+  // 分析画面。
+  await page.click('.tab-btn[data-tab="analysis"]');
+  await page.waitForTimeout(300);
+  const analysisOverview = await page.evaluate(() => ({
+    overviewVisible: !document.getElementById("analysis-overview-card").hidden,
+    overviewItemCount: document.getElementById("analysis-overview").children.length,
+  }));
+  analysisOverview.overviewVisible && analysisOverview.overviewItemCount === 14
+    ? ok("分析画面の概要が表示された")
+    : fail(`分析画面の概要が期待通りでない: ${JSON.stringify(analysisOverview)}`);
+
+  await page.click("#analysis-year-list .drilldown-row", { timeout: 5000 }).catch((e) => {
+    fail(`年の一覧行をタップできない: ${e.message}`);
+  });
+  await page.waitForTimeout(200);
+  const afterYearClick = await page.evaluate(() => ({
+    detailVisible: !document.getElementById("analysis-detail-card").hidden,
+    monthRowCount: document.querySelectorAll("#analysis-year-list .drilldown-row-month").length,
+  }));
+  afterYearClick.detailVisible && afterYearClick.monthRowCount > 0
+    ? ok(`年をタップして詳細と月一覧(${afterYearClick.monthRowCount}件)が表示された`)
+    : fail(`年タップ後の表示が期待通りでない: ${JSON.stringify(afterYearClick)}`);
+
+  await page.click("#analysis-year-list .drilldown-row-month", { timeout: 5000 }).catch((e) => {
+    fail(`月の一覧行をタップできない: ${e.message}`);
+  });
+  await page.waitForTimeout(200);
+  const afterMonthClick = await page.evaluate(() => ({
+    dayRowCount: document.getElementById("analysis-day-list").children.length,
+    chartExists: !!AnalysisView.chart,
+  }));
+  afterMonthClick.dayRowCount > 0 && afterMonthClick.chartExists
+    ? ok(`月をタップして日別一覧(${afterMonthClick.dayRowCount}件)と詳細グラフが表示された`)
+    : fail(`月タップ後の表示が期待通りでない: ${JSON.stringify(afterMonthClick)}`);
+
+  // 日別一覧の行をタップすると、カレンダーと同じ記帳モーダルが開く(日次ドリルダウン)。
+  await page.click("#analysis-day-list .drilldown-row-day", { timeout: 5000 }).catch((e) => {
+    fail(`日別一覧の行をタップできない: ${e.message}`);
+  });
+  await page.waitForTimeout(200);
+  const dayModalOpened = await page.evaluate(() => !document.getElementById("entry-modal-overlay").hidden);
+  dayModalOpened
+    ? ok("分析画面の日別一覧から記帳モーダルが開いた")
+    : fail("分析画面の日別一覧をタップしても記帳モーダルが開かない");
+  await page.click("#entry-cancel-btn");
+
   const relevantErrors = errors.filter(
     (e) => !/accounts\.google\.com|gsi\/client|ERR_CONNECTION|ERR_NAME_NOT_RESOLVED|favicon/.test(e)
   );

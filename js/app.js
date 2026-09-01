@@ -17,6 +17,7 @@ const el = {
   importSummary: document.getElementById("import-summary"),
   graphCard: document.getElementById("graph-card"),
   graphSigninMsg: document.getElementById("graph-signin-msg"),
+  analysisSigninMsg: document.getElementById("analysis-signin-msg"),
   readResultTable: document.getElementById("read-result-table"),
   logArea: document.getElementById("log-area"),
   signinRequiredMsg: document.getElementById("signin-required-msg"),
@@ -37,10 +38,13 @@ el.tabButtons.forEach((btn) => {
     Object.entries(el.tabPanels).forEach(([name, panel]) => {
       panel.hidden = name !== btn.dataset.tab;
     });
-    // グラフはCanvasが非表示の間は正しいサイズで描画できないため、
+    // グラフ・分析はCanvasが非表示の間は正しいサイズで描画できないため、
     // タブが実際に表示された後に描画する。
     if (btn.dataset.tab === "graph" && currentAccessToken) {
       GraphView.render();
+    }
+    if (btn.dataset.tab === "analysis" && currentAccessToken) {
+      AnalysisView.render();
     }
   });
 });
@@ -133,8 +137,10 @@ async function loadCalendarData() {
     el.calendarCard.hidden = false;
     el.graphCard.hidden = false;
     el.graphSigninMsg.hidden = true;
+    el.analysisSigninMsg.hidden = true;
     CalendarView.render();
     if (!el.tabPanels.graph.hidden) GraphView.render();
+    if (!el.tabPanels.analysis.hidden) AnalysisView.render();
     log("カレンダーデータを読み込みました");
   } catch (e) {
     if (isAuthError(e.message)) {
@@ -157,6 +163,10 @@ function resetToLoggedOut(reasonLog) {
   el.signinRequiredMsg.hidden = false;
   el.graphCard.hidden = true;
   el.graphSigninMsg.hidden = false;
+  el.analysisSigninMsg.hidden = false;
+  document.getElementById("analysis-overview-card").hidden = true;
+  document.getElementById("analysis-drilldown-card").hidden = true;
+  document.getElementById("analysis-detail-card").hidden = true;
   if (reasonLog) log(reasonLog);
 }
 
@@ -274,6 +284,7 @@ loadSettingsIntoForm();
 CalendarView.init();
 EntryModal.init();
 GraphView.init();
+AnalysisView.init();
 el.signinRequiredMsg.hidden = false;
 
 // Googleのログイン画面から戻ってきた直後であれば、URLからトークンを受け取る。

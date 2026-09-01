@@ -391,6 +391,69 @@ table th, table td {
   margin-bottom: 0;
 }
 
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.metric-item {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.metric-label {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.metric-value {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.drilldown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.drilldown-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.9rem;
+  cursor: pointer;
+  touch-action: manipulation;
+  text-align: left;
+}
+
+.drilldown-row.active {
+  border-color: var(--accent);
+}
+
+.drilldown-row-month {
+  margin-left: 16px;
+}
+
+.drilldown-row-day {
+  margin-left: 32px;
+  font-size: 0.85rem;
+}
+
+.drilldown-row-label {
+  color: var(--text-dim);
+}
+
 .build-footer {
   text-align: center;
   color: var(--text-dim);

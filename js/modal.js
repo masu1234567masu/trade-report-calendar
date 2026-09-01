@@ -64,6 +64,7 @@ const EntryModal = {
       });
       this.close();
       CalendarView.render();
+      if (!document.getElementById("tab-analysis").hidden) AnalysisView.render();
     } catch (e) {
       if (isAuthError(e.message)) {
         this.close();

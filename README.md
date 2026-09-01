@@ -59,6 +59,8 @@ js/sheets.js     Google Sheets API v4 の読み書きラッパー
 js/data.js       スプレッドシートの行データ・日次損益の計算
 js/calendar.js   ホーム(カレンダー)画面の描画
 js/modal.js      日付タップで開く記帳モーダル
+js/graph.js      グラフ画面(期間切り替え・累積損益/総資産)
+js/analysis.js   分析画面(年別・月別ドリルダウン・概要/期間指標)
 js/app.js        画面全体の初期化・タブ切り替え・ログイン制御
 docs/            セットアップ手順書
 test/            動作確認スクリプト(開発用、公開サイトには含まれない)
