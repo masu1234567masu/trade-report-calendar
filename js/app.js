@@ -141,7 +141,7 @@ async function loadCalendarData() {
       handleAuthExpired();
       return;
     }
-    log(`カレンダー読み込みエラー: ${e.message}`);
+    showGlobalError(`カレンダー読み込みエラー: ${e.message}`);
   }
 }
 

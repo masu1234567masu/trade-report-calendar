@@ -61,6 +61,30 @@ function ok(message) {
     document.getElementById("settings-details").open = false;
   });
 
+  // Sheets API自体が(スプレッドシートID未設定ではなく)400エラーを返すケース。
+  // 実機で「ログイン済み表示なのにカレンダーが出ず、原因は折りたたみ内のログにしか
+  // 出ていない400エラーだった」という不具合が起きた。一般化した修正(自動読み込み中の
+  // エラーはすべてshowGlobalErrorで出す)が効いているか確認する。
+  await page.evaluate(async () => {
+    setSetting(APP_CONFIG.storageKeys.sheetId, "fake-sheet-id");
+    SheetsAPI.readRange = async () => {
+      throw new Error('読み込み失敗: 400 {"error":{"code":400,"message":"Unable to parse range","status":"INVALID_ARGUMENT"}}');
+    };
+    await onLoginSuccess("fake-token-400");
+  });
+  await page.waitForTimeout(200);
+  const apiErrorState = await page.evaluate(() => ({
+    globalStatusVisible: !document.getElementById("global-status").hidden,
+    globalStatusText: document.getElementById("global-status").textContent,
+  }));
+  apiErrorState.globalStatusVisible && /400/.test(apiErrorState.globalStatusText)
+    ? ok("Sheets APIの400エラーが画面上部に表示された")
+    : fail(`Sheets APIの400エラーが見える形で出ていない: ${JSON.stringify(apiErrorState)}`);
+  await page.evaluate(() => {
+    resetToLoggedOut(null);
+    clearGlobalError();
+  });
+
   // ログイン状態とSheets APIを偽装する。
   await page.evaluate(async () => {
     window.__fakeRows = [];
