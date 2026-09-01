@@ -16,3 +16,8 @@ function getSetting(key) {
 function setSetting(key, value) {
   localStorage.setItem(key, value);
 }
+
+// Googleのアクセストークンが失効した(401/UNAUTHENTICATED)かどうかの簡易判定。
+function isAuthError(message) {
+  return /"code":\s*401|UNAUTHENTICATED/.test(message);
+}

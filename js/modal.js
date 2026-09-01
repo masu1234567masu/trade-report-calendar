@@ -65,6 +65,11 @@ const EntryModal = {
       this.close();
       CalendarView.render();
     } catch (e) {
+      if (isAuthError(e.message)) {
+        this.close();
+        handleAuthExpired();
+        return;
+      }
       this.showError(`保存エラー: ${e.message}`);
     } finally {
       this.el.saveBtn.disabled = false;

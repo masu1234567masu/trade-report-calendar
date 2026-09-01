@@ -107,21 +107,36 @@ async function loadCalendarData() {
     CalendarView.render();
     log("カレンダーデータを読み込みました");
   } catch (e) {
+    if (isAuthError(e.message)) {
+      handleAuthExpired();
+      return;
+    }
     log(`カレンダー読み込みエラー: ${e.message}`);
   }
+}
+
+function resetToLoggedOut(reasonLog) {
+  currentAccessToken = null;
+  SheetsAPI.setAccessToken(null);
+  el.signinBtn.hidden = false;
+  el.signedInArea.hidden = true;
+  el.readTestBtn.disabled = true;
+  el.writeTestBtn.disabled = true;
+  el.calendarCard.hidden = true;
+  el.signinRequiredMsg.hidden = false;
+  if (reasonLog) log(reasonLog);
+}
+
+// トークン切れ(401)を検知したときに、ログイン状態の表示を実態に合わせて戻す。
+// モーダル側(modal.js)からも、保存エラーが認証切れだった場合に呼ばれる。
+function handleAuthExpired() {
+  resetToLoggedOut("セッションが切れました。もう一度ログインしてください");
 }
 
 el.signoutBtn.addEventListener("click", () => {
   if (!currentAccessToken) return;
   Auth.revoke(currentAccessToken, () => {
-    currentAccessToken = null;
-    el.signinBtn.hidden = false;
-    el.signedInArea.hidden = true;
-    el.readTestBtn.disabled = true;
-    el.writeTestBtn.disabled = true;
-    el.calendarCard.hidden = true;
-    el.signinRequiredMsg.hidden = false;
-    log("ログアウトしました");
+    resetToLoggedOut("ログアウトしました");
   });
 });
 
@@ -137,6 +152,10 @@ el.readTestBtn.addEventListener("click", async () => {
     renderTable(values);
     log(`読み込み成功: ${values.length}行取得`);
   } catch (e) {
+    if (isAuthError(e.message)) {
+      handleAuthExpired();
+      return;
+    }
     log(`読み込みエラー: ${e.message}`);
   }
 });
@@ -155,6 +174,10 @@ el.writeTestBtn.addEventListener("click", async () => {
     const readBack = await SheetsAPI.readRange(sheetId, `${sheetName}!Z1`);
     log(`読み戻し確認: ${JSON.stringify(readBack)}`);
   } catch (e) {
+    if (isAuthError(e.message)) {
+      handleAuthExpired();
+      return;
+    }
     log(`書き込みエラー: ${e.message}`);
   }
 });
