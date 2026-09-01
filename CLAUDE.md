@@ -7,10 +7,11 @@
 **UI/JSに変更を加えたら、pushする前に必ず `test/smoke-test.js` を実行し、実際にヘッドレスブラウザで操作して確認してから報告する。** コードを目で読んで「合っているはず」で報告するのは禁止。過去に何度もそれで見た目には気づけないCSS/ブラウザ固有の不具合を見逃し、ユーザーに何度も同じ実機テストをさせてしまった。
 
 ```bash
-npm install playwright   # 初回のみ
 python3 -m http.server 8123 &
-node test/smoke-test.js
+NODE_PATH=/opt/node22/lib/node_modules node test/smoke-test.js
 ```
+
+(この開発環境ではPlaywrightは`/opt/node22/lib/node_modules`にグローバル導入済み。`npm install playwright`でバージョン違いを取得しないこと。理由は下記デバッグツール節参照。)
 
 新しい画面(グラフ・分析など)を追加したら、`test/smoke-test.js` にもその画面の操作確認を追加すること。
 
@@ -54,8 +55,13 @@ Google Cloud側では「承認済みのリダイレクトURI」に、末尾ス�
 ### 6. 設定(localStorage)は端末・ブラウザごとに別
 OAuthクライアントID・スプレッドシートIDはlocalStorage保存のため、パソコンで設定してもiPhoneには反映されない(逆も同様)。「設定したのに動かない」と言われたら、まずその端末で接続設定が空になっていないかを疑うこと。
 
+### 7. Chart.js をCDN(cdnjs)から読み込んでいたため、ユーザーの実機ネットワークでも読み込みに失敗した
+開発環境からcdnjs.cloudflare.comへ到達できないことは把握していたが、「本番のGitHub Pages上なら普通のインターネット接続で到達できるはず」という前提で本番もCDN読み込みのままにしていた。ところが実際にはユーザーの実機(自宅ネットワーク・広告ブロッカー等)でもcdnjsへの通信がブロックされ、グラフ画面が(エラー表示は出るようになったが)動かない状態になった。CDNは「開発環境で届かない」だけでなく「一部ユーザーの実際の環境でも届かない」ことがあり得ると考えるべきだった。
+
+**対策**：Chart.jsは外部CDNに依存せず、`js/vendor/chart.umd.js`としてリポジトリに同梱し、ローカルパスから読み込むように変更した。これによりネットワーク環境・広告ブロッカー等に左右されなくなる。今後、外部ライブラリを追加する際も、個人利用のスタンドアロンアプリという性質上、基本的には同様にリポジトリへ同梱する方針を優先すること(npmレジストリから`npm pack <pkg>@<version>`で取得し、`dist/`内のUMDビルドを`js/vendor/`に配置する)。
+
 ## デバッグ時に使えるツール
 
-- ヘッドレスChromiumがこの環境に用意されている(`/opt/pw-browsers/chromium-*/chrome-linux/chrome`)。`npm install playwright`すれば`require("playwright")`でこの環境に用意された内容が使える。
+- ヘッドレスChromiumがこの環境に用意されている(`/opt/pw-browsers/chromium-*/chrome-linux/chrome`)。グローバルに`/opt/node22/lib/node_modules/playwright`としてPlaywright本体も用意されている。**リポジトリの`package.json`が指定するバージョンとこの環境のブラウザビルドが対応しているため、`npm install playwright`でバージョン違いのplaywrightを取得しないこと**(実際に一度`^1.48.0`→`^1.62.1`に上書きしてしまい、ブラウザ実行ファイルが見つからずテストが動かなくなった)。`test/smoke-test.js`は`NODE_PATH=/opt/node22/lib/node_modules node test/smoke-test.js`のようにグローバルの方を使って実行すること。
 - ただしこの開発環境からは `accounts.google.com` 等Google本体のドメインへの実通信はネットワークポリシーでブロックされている。本物のGoogleログイン画面をまたぐ部分(リダイレクト後にURLフラグメントへトークンが付いて戻ってくる、という前提)は、実際のURLを直接開いてトークン付きで戻ってきた状態を`page.goto("http://localhost:8123/#access_token=...")`のように再現してテストする(`test/smoke-test.js`参照)。実際にGoogle側と疎通する部分そのものは、この環境では自動テストできない、という限界を認識しておくこと。
-- 同様に `cdnjs.cloudflare.com`(グラフ画面のChart.js読み込み元)もこの環境からはブロックされている。npmレジストリ(`registry.npmjs.org`)は使えるので、`npm pack chart.js@4.4.4` して展開した`package/dist/chart.umd.js`をローカルに置き、`SMOKE_TEST_CHARTJS_LOCAL_PATH`環境変数にそのパスを指定して`test/smoke-test.js`を実行すれば、cdnjsへのリクエストをそのファイルで代用してグラフ画面もテストできる。本番のGitHub Pages上では通常のインターネット接続からcdnjsに到達できるので、index.html側の読み込み先はcdnjsのままでよい(このワークアラウンドはこの開発環境でのテスト時のみ必要)。
+- Chart.jsは`js/vendor/chart.umd.js`としてリポジトリに同梱済み(上記7番参照)なので、テスト用の特別なCDN代替設定は不要。

@@ -10,17 +10,13 @@
 //
 // 画面(グラフ・分析)を追加したら、このスクリプトにも操作手順を足していくこと。
 //
-// グラフ画面はChart.jsをcdnjs.cloudflare.comから読み込む。開発環境から
-// そこへ到達できない場合(このプロジェクトのサンドボックス環境など)は、
-// 事前に `npm pack chart.js@4.4.4` してdist/chart.umd.jsを取り出し、
-// そのパスを SMOKE_TEST_CHARTJS_LOCAL_PATH に指定するとローカルの
-// ファイルで代用してテストできる(CLAUDE.md参照)。
+// グラフ画面が使うChart.jsは js/vendor/chart.umd.js としてリポジトリに
+// 同梱済み(CDN不使用)なので、追加の設定なしにローカルサーバー配信で
+// そのままテストできる。
 
-const fs = require("fs");
 const { chromium, devices } = require("playwright");
 
 const BASE_URL = process.env.SMOKE_TEST_URL || "http://localhost:8123/";
-const CHARTJS_LOCAL_PATH = process.env.SMOKE_TEST_CHARTJS_LOCAL_PATH;
 
 function fail(message) {
   console.error(`NG: ${message}`);
@@ -41,13 +37,6 @@ function ok(message) {
   page.on("console", (msg) => {
     if (msg.type() === "error") errors.push(msg.text());
   });
-
-  if (CHARTJS_LOCAL_PATH) {
-    const chartJsContent = fs.readFileSync(CHARTJS_LOCAL_PATH, "utf-8");
-    await page.route("https://cdnjs.cloudflare.com/**", (route) =>
-      route.fulfill({ status: 200, contentType: "application/javascript", body: chartJsContent })
-    );
-  }
 
   await page.goto(BASE_URL, { waitUntil: "load" });
 
@@ -150,10 +139,7 @@ function ok(message) {
   await page.waitForTimeout(300);
   const chartJsLoaded = await page.evaluate(() => typeof Chart !== "undefined");
   if (!chartJsLoaded) {
-    fail(
-      "Chart.jsが読み込めていない(cdnjs.cloudflare.comに到達できない環境の場合、" +
-        "SMOKE_TEST_CHARTJS_LOCAL_PATHでローカルのchart.umd.jsを指定すること)"
-    );
+    fail("Chart.jsが読み込めていない(js/vendor/chart.umd.jsの配信を確認すること)");
   } else {
     const graphState = await page.evaluate(() => ({
       cardVisible: !document.getElementById("graph-card").hidden,
@@ -184,7 +170,7 @@ function ok(message) {
   }
 
   const relevantErrors = errors.filter(
-    (e) => !/accounts\.google\.com|gsi\/client|cdnjs\.cloudflare\.com|ERR_CONNECTION|ERR_NAME_NOT_RESOLVED|favicon/.test(e)
+    (e) => !/accounts\.google\.com|gsi\/client|ERR_CONNECTION|ERR_NAME_NOT_RESOLVED|favicon/.test(e)
   );
   if (relevantErrors.length > 0) {
     fail(`コンソールエラーあり:\n${relevantErrors.join("\n")}`);
