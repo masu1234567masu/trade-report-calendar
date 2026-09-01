@@ -119,7 +119,10 @@ async function onLoginSuccess(accessToken) {
 async function loadCalendarData() {
   const { sheetId, sheetName } = currentSettings();
   if (!sheetId) {
-    log("エラー: スプレッドシートIDを設定してください");
+    showGlobalError(
+      "エラー: この端末では接続設定が未入力です。下の「接続設定・データ疎通確認」を開いて、スプレッドシートIDを入力・保存してください(設定は端末ごとに別々です)"
+    );
+    document.getElementById("settings-details").open = true;
     return;
   }
   try {

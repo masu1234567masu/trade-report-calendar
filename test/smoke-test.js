@@ -40,6 +40,27 @@ function ok(message) {
 
   await page.goto(BASE_URL, { waitUntil: "load" });
 
+  // この端末で接続設定(スプレッドシートID)が未入力のままログインしたケース。
+  // 過去に「ログイン済み表示になるのに、カレンダー/グラフは出ないまま」という
+  // 不具合が起きた。原因はエラーが折りたたみの中のログにしか出ておらず、
+  // 画面上は何も変わったように見えなかったこと。再発防止のため確認する。
+  await page.evaluate(async () => {
+    await onLoginSuccess("fake-token-no-sheet-id");
+  });
+  await page.waitForTimeout(200);
+  const noSheetIdState = await page.evaluate(() => ({
+    globalStatusVisible: !document.getElementById("global-status").hidden,
+    settingsOpen: document.getElementById("settings-details").open,
+  }));
+  noSheetIdState.globalStatusVisible && noSheetIdState.settingsOpen
+    ? ok("スプレッドシートID未設定のログインで、画面上部にエラーが表示され接続設定が開いた")
+    : fail(`スプレッドシートID未設定なのにエラーが見える形で出ていない: ${JSON.stringify(noSheetIdState)}`);
+  await page.evaluate(() => {
+    resetToLoggedOut(null);
+    clearGlobalError();
+    document.getElementById("settings-details").open = false;
+  });
+
   // ログイン状態とSheets APIを偽装する。
   await page.evaluate(async () => {
     window.__fakeRows = [];
