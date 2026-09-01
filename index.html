@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>トレード収支管理</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="app-header">
+  <h1>トレード収支管理</h1>
+  <div id="auth-area">
+    <button id="signin-btn" class="btn btn-primary">Googleでログイン</button>
+    <div id="signed-in-area" hidden>
+      <span id="user-email"></span>
+      <button id="signout-btn" class="btn btn-ghost">ログアウト</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section id="settings-panel" class="card">
+    <h2>接続設定</h2>
+    <p class="hint">Google Cloud で発行したOAuthクライアントIDと、データ保存先のスプレッドシートIDを設定してください。ブラウザ内(localStorage)にのみ保存され、コードの変更・再公開は不要です。</p>
+    <label>
+      OAuthクライアントID
+      <input type="text" id="client-id-input" placeholder="xxxxxxxx.apps.googleusercontent.com">
+    </label>
+    <label>
+      スプレッドシートID
+      <input type="text" id="sheet-id-input" placeholder="スプレッドシートURLの /d/ と /edit の間の文字列">
+    </label>
+    <label>
+      シート名
+      <input type="text" id="sheet-name-input" placeholder="Sheet1" value="Sheet1">
+    </label>
+    <button id="save-settings-btn" class="btn btn-primary">保存</button>
+    <span id="settings-saved-msg" class="ok-msg" hidden>保存しました</span>
+  </section>
+
+  <section id="connectivity-panel" class="card">
+    <h2>データ疎通確認</h2>
+    <p class="hint">ログイン後、下のボタンでスプレッドシートの読み書きを確認できます。</p>
+    <div class="btn-row">
+      <button id="read-test-btn" class="btn" disabled>読み込みテスト</button>
+      <button id="write-test-btn" class="btn" disabled>書き込みテスト</button>
+    </div>
+    <table id="read-result-table" hidden></table>
+    <pre id="log-area" class="log-area"></pre>
+  </section>
+</main>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="js/config.js"></script>
+<script src="js/sheets.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

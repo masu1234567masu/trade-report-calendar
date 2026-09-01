@@ -1,0 +1,141 @@
+// データ疎通確認用の画面ロジック。
+// 対応するUI: 接続設定フォーム / ログイン / 読み込みテスト / 書き込みテスト
+
+const el = {
+  signinBtn: document.getElementById("signin-btn"),
+  signedInArea: document.getElementById("signed-in-area"),
+  userEmail: document.getElementById("user-email"),
+  signoutBtn: document.getElementById("signout-btn"),
+  clientIdInput: document.getElementById("client-id-input"),
+  sheetIdInput: document.getElementById("sheet-id-input"),
+  sheetNameInput: document.getElementById("sheet-name-input"),
+  saveSettingsBtn: document.getElementById("save-settings-btn"),
+  settingsSavedMsg: document.getElementById("settings-saved-msg"),
+  readTestBtn: document.getElementById("read-test-btn"),
+  writeTestBtn: document.getElementById("write-test-btn"),
+  readResultTable: document.getElementById("read-result-table"),
+  logArea: document.getElementById("log-area"),
+};
+
+let currentAccessToken = null;
+
+function log(message) {
+  const time = new Date().toLocaleTimeString("ja-JP");
+  el.logArea.textContent += `[${time}] ${message}\n`;
+  el.logArea.scrollTop = el.logArea.scrollHeight;
+}
+
+function loadSettingsIntoForm() {
+  el.clientIdInput.value = getSetting(APP_CONFIG.storageKeys.clientId);
+  el.sheetIdInput.value = getSetting(APP_CONFIG.storageKeys.sheetId);
+  el.sheetNameInput.value = getSetting(APP_CONFIG.storageKeys.sheetName) || "Sheet1";
+}
+
+function currentSettings() {
+  return {
+    clientId: getSetting(APP_CONFIG.storageKeys.clientId),
+    sheetId: getSetting(APP_CONFIG.storageKeys.sheetId),
+    sheetName: getSetting(APP_CONFIG.storageKeys.sheetName) || "Sheet1",
+  };
+}
+
+el.saveSettingsBtn.addEventListener("click", () => {
+  setSetting(APP_CONFIG.storageKeys.clientId, el.clientIdInput.value.trim());
+  setSetting(APP_CONFIG.storageKeys.sheetId, el.sheetIdInput.value.trim());
+  setSetting(APP_CONFIG.storageKeys.sheetName, el.sheetNameInput.value.trim() || "Sheet1");
+  el.settingsSavedMsg.hidden = false;
+  setTimeout(() => (el.settingsSavedMsg.hidden = true), 2000);
+  log("設定を保存しました");
+});
+
+el.signinBtn.addEventListener("click", () => {
+  const { clientId } = currentSettings();
+  if (!clientId) {
+    log("エラー: 先にOAuthクライアントIDを設定して保存してください");
+    return;
+  }
+  Auth.init(
+    clientId,
+    (accessToken) => {
+      currentAccessToken = accessToken;
+      SheetsAPI.setAccessToken(accessToken);
+      el.signinBtn.hidden = true;
+      el.signedInArea.hidden = false;
+      el.userEmail.textContent = "ログイン済み";
+      el.readTestBtn.disabled = false;
+      el.writeTestBtn.disabled = false;
+      log("ログインに成功しました");
+    },
+    (error) => {
+      log(`ログインエラー: ${error}`);
+    }
+  );
+  Auth.requestToken();
+});
+
+el.signoutBtn.addEventListener("click", () => {
+  if (!currentAccessToken) return;
+  Auth.revoke(currentAccessToken, () => {
+    currentAccessToken = null;
+    el.signinBtn.hidden = false;
+    el.signedInArea.hidden = true;
+    el.readTestBtn.disabled = true;
+    el.writeTestBtn.disabled = true;
+    log("ログアウトしました");
+  });
+});
+
+el.readTestBtn.addEventListener("click", async () => {
+  const { sheetId, sheetName } = currentSettings();
+  if (!sheetId) {
+    log("エラー: スプレッドシートIDを設定してください");
+    return;
+  }
+  try {
+    log(`読み込み中... (${sheetName}!A1:E10)`);
+    const values = await SheetsAPI.readRange(sheetId, `${sheetName}!A1:E10`);
+    renderTable(values);
+    log(`読み込み成功: ${values.length}行取得`);
+  } catch (e) {
+    log(`読み込みエラー: ${e.message}`);
+  }
+});
+
+el.writeTestBtn.addEventListener("click", async () => {
+  const { sheetId, sheetName } = currentSettings();
+  if (!sheetId) {
+    log("エラー: スプレッドシートIDを設定してください");
+    return;
+  }
+  const testValue = `疎通テスト ${new Date().toLocaleString("ja-JP")}`;
+  try {
+    log(`書き込み中... (${sheetName}!Z1 に "${testValue}")`);
+    await SheetsAPI.writeRange(sheetId, `${sheetName}!Z1`, [[testValue]]);
+    log("書き込み成功。読み込みテストで Z1 の値を確認できます");
+    const readBack = await SheetsAPI.readRange(sheetId, `${sheetName}!Z1`);
+    log(`読み戻し確認: ${JSON.stringify(readBack)}`);
+  } catch (e) {
+    log(`書き込みエラー: ${e.message}`);
+  }
+});
+
+function renderTable(values) {
+  const table = el.readResultTable;
+  table.innerHTML = "";
+  if (values.length === 0) {
+    table.hidden = true;
+    return;
+  }
+  values.forEach((row) => {
+    const tr = document.createElement("tr");
+    row.forEach((cell) => {
+      const td = document.createElement("td");
+      td.textContent = cell;
+      tr.appendChild(td);
+    });
+    table.appendChild(tr);
+  });
+  table.hidden = false;
+}
+
+loadSettingsIntoForm();
