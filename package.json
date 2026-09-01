@@ -1,0 +1,12 @@
+{
+  "name": "trade-report-calendar",
+  "version": "0.0.0",
+  "private": true,
+  "description": "個人利用のトレード収支管理アプリ(スタンドアロンHTML/JS)。package.jsonは開発用の動作確認スクリプトのためだけに存在し、公開されるアプリ自体はビルド不要です。",
+  "scripts": {
+    "test:smoke": "node test/smoke-test.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.48.0"
+  }
+}
