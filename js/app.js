@@ -16,6 +16,7 @@ const el = {
   readResultTable: document.getElementById("read-result-table"),
   logArea: document.getElementById("log-area"),
   signinRequiredMsg: document.getElementById("signin-required-msg"),
+  globalStatus: document.getElementById("global-status"),
   calendarCard: document.getElementById("calendar-card"),
   tabButtons: document.querySelectorAll(".tab-btn"),
   tabPanels: {
@@ -43,6 +44,18 @@ function log(message) {
   el.logArea.scrollTop = el.logArea.scrollHeight;
 }
 
+// 折りたたまれた「接続設定」欄の中のログだけだと気づかれないため、
+// ログイン関連のエラーは画面上部にも常に見える形で出す。
+function showGlobalError(message) {
+  el.globalStatus.textContent = message;
+  el.globalStatus.hidden = false;
+  log(message);
+}
+
+function clearGlobalError() {
+  el.globalStatus.hidden = true;
+}
+
 function loadSettingsIntoForm() {
   el.clientIdInput.value = getSetting(APP_CONFIG.storageKeys.clientId);
   el.sheetIdInput.value = getSetting(APP_CONFIG.storageKeys.sheetId);
@@ -67,15 +80,21 @@ el.saveSettingsBtn.addEventListener("click", () => {
 });
 
 el.signinBtn.addEventListener("click", () => {
+  clearGlobalError();
   const { clientId } = currentSettings();
   if (!clientId) {
-    log("エラー: 先にOAuthクライアントIDを設定して保存してください");
+    showGlobalError("エラー: 先にOAuthクライアントIDを設定して保存してください(下の「接続設定」を開いて入力・保存してください)");
     return;
   }
-  Auth.login(clientId);
+  try {
+    Auth.login(clientId);
+  } catch (e) {
+    showGlobalError(`ログイン処理でエラーが発生しました: ${e.message}`);
+  }
 });
 
 async function onLoginSuccess(accessToken) {
+  clearGlobalError();
   currentAccessToken = accessToken;
   SheetsAPI.setAccessToken(accessToken);
   el.signinBtn.hidden = true;
@@ -125,7 +144,8 @@ function resetToLoggedOut(reasonLog) {
 // トークン切れ(401)を検知したときに、ログイン状態の表示を実態に合わせて戻す。
 // モーダル側(modal.js)からも、保存エラーが認証切れだった場合に呼ばれる。
 function handleAuthExpired() {
-  resetToLoggedOut("セッションが切れました。もう一度ログインしてください");
+  resetToLoggedOut(null);
+  showGlobalError("セッションが切れました。もう一度ログインしてください");
 }
 
 el.signoutBtn.addEventListener("click", () => {
@@ -206,5 +226,5 @@ const redirectResult = Auth.consumeRedirectResult();
 if (redirectResult && redirectResult.token) {
   onLoginSuccess(redirectResult.token);
 } else if (redirectResult && redirectResult.error) {
-  log(`ログインエラー: ${redirectResult.error}`);
+  showGlobalError(`ログインエラー: ${redirectResult.error}`);
 }
