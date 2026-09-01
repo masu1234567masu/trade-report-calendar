@@ -106,8 +106,32 @@ el.signinBtn.addEventListener("click", () => {
   }
 });
 
-async function onLoginSuccess(accessToken) {
-  clearGlobalError();
+// アクセストークンをlocalStorageに有効期限付きで保存する。
+// ページを開き直すたびの再ログインを避けるための簡易キャッシュ(app.js下部の
+// 起動処理・resetToLoggedOut()参照)。
+function saveAccessToken(token, expiresIn) {
+  const expiresAt = Date.now() + expiresIn * 1000;
+  setSetting(APP_CONFIG.storageKeys.accessToken, token);
+  setSetting(APP_CONFIG.storageKeys.accessTokenExpiresAt, String(expiresAt));
+  setSetting(APP_CONFIG.storageKeys.explicitLogout, "");
+}
+
+// 保存済みのトークンがまだ有効(期限まで60秒以上余裕がある)ならそれを返す。
+function loadCachedAccessToken() {
+  const token = getSetting(APP_CONFIG.storageKeys.accessToken);
+  const expiresAt = Number(getSetting(APP_CONFIG.storageKeys.accessTokenExpiresAt));
+  if (!token || !expiresAt || Date.now() > expiresAt - 60000) return null;
+  return token;
+}
+
+function clearCachedAccessToken() {
+  setSetting(APP_CONFIG.storageKeys.accessToken, "");
+  setSetting(APP_CONFIG.storageKeys.accessTokenExpiresAt, "");
+}
+
+// ログイン成功後の画面状態を実際に反映する共通処理。
+// 新規ログイン(onLoginSuccess)でも、保存済みトークンの復元(restoreSession)でも使う。
+async function activateSession(accessToken) {
   currentAccessToken = accessToken;
   SheetsAPI.setAccessToken(accessToken);
   el.signinBtn.hidden = true;
@@ -116,8 +140,21 @@ async function onLoginSuccess(accessToken) {
   el.readTestBtn.disabled = false;
   el.writeTestBtn.disabled = false;
   el.importBtn.disabled = false;
-  log("ログインに成功しました");
   await loadCalendarData();
+}
+
+async function onLoginSuccess(accessToken, expiresIn) {
+  clearGlobalError();
+  saveAccessToken(accessToken, expiresIn || 3600);
+  log("ログインに成功しました");
+  await activateSession(accessToken);
+}
+
+// 保存済みの有効なトークンで、ログイン操作なしに状態を復元する。
+async function restoreSession(accessToken) {
+  clearGlobalError();
+  log("保存済みのログイン状態を復元しました");
+  await activateSession(accessToken);
 }
 
 async function loadCalendarData() {
@@ -154,6 +191,7 @@ async function loadCalendarData() {
 function resetToLoggedOut(reasonLog) {
   currentAccessToken = null;
   SheetsAPI.setAccessToken(null);
+  clearCachedAccessToken();
   el.signinBtn.hidden = false;
   el.signedInArea.hidden = true;
   el.readTestBtn.disabled = true;
@@ -181,6 +219,9 @@ el.signoutBtn.addEventListener("click", () => {
   if (!currentAccessToken) return;
   Auth.revoke(currentAccessToken, () => {
     resetToLoggedOut("ログアウトしました");
+    // 明示的にログアウトした場合は、次に開いたときに自動で再ログインしない
+    // (通常のログインボタンから、あらためて自分の意思でログインしてもらう)。
+    setSetting(APP_CONFIG.storageKeys.explicitLogout, "1");
   });
 });
 
@@ -290,7 +331,29 @@ el.signinRequiredMsg.hidden = false;
 // Googleのログイン画面から戻ってきた直後であれば、URLからトークンを受け取る。
 const redirectResult = Auth.consumeRedirectResult();
 if (redirectResult && redirectResult.token) {
-  onLoginSuccess(redirectResult.token);
+  onLoginSuccess(redirectResult.token, redirectResult.expiresIn);
 } else if (redirectResult && redirectResult.error) {
-  showGlobalError(`ログインエラー: ${redirectResult.error}`);
+  if (redirectResult.silent) {
+    // 自動での再ログイン試行(loginSilent)が失敗しただけなので、
+    // ユーザー操作ではタップしていない。エラー表示はせず、通常の
+    // 「Googleでログイン」ボタンが見えている状態のままにする。
+    log(`自動ログインを試みましたが失敗しました(${redirectResult.error})。ログインボタンから再ログインしてください`);
+  } else {
+    showGlobalError(`ログインエラー: ${redirectResult.error}`);
+  }
+} else {
+  // リダイレクト直後でなければ、保存済みの有効なトークンがないか確認する。
+  const cachedToken = loadCachedAccessToken();
+  if (cachedToken) {
+    restoreSession(cachedToken);
+  } else {
+    // 保存済みトークンも無ければ、明示的にログアウトしていない限り、
+    // タップ不要の自動再ログインを試みる(ブラウザにGoogleのログイン
+    // セッションが残っていれば、同意画面を出さずに裏で戻ってくる)。
+    const { clientId } = currentSettings();
+    const explicitlyLoggedOut = getSetting(APP_CONFIG.storageKeys.explicitLogout) === "1";
+    if (clientId && !explicitlyLoggedOut) {
+      Auth.loginSilent(clientId);
+    }
+  }
 }

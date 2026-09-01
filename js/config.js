@@ -5,6 +5,9 @@ const APP_CONFIG = {
     clientId: "trc_client_id",
     sheetId: "trc_sheet_id",
     sheetName: "trc_sheet_name",
+    accessToken: "trc_access_token",
+    accessTokenExpiresAt: "trc_access_token_expires_at",
+    explicitLogout: "trc_explicit_logout",
   },
   scopes: "https://www.googleapis.com/auth/spreadsheets",
 };

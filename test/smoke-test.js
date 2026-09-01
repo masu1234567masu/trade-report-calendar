@@ -85,6 +85,61 @@ function ok(message) {
     clearGlobalError();
   });
 
+  // ログイン状態のキャッシュ(localStorage)。「毎回ログインし直すのが面倒」という
+  // フィードバックを受けて、有効期限内のトークンは再読み込みしても使い回すようにした。
+  // 再読み込み後もSheets APIへの通信をスタブできるよう、fetch自体をここで
+  // 差し替えておく(SheetsAPI.readRangeへの直接上書きは再読み込みで失われるため)。
+  await page.addInitScript(() => {
+    const realFetch = window.fetch;
+    window.fetch = (url, opts) => {
+      if (typeof url === "string" && url.includes("sheets.googleapis.com")) {
+        const body = url.includes("A1%3AE1")
+          ? { values: [["日付", "純資産額", "入出金", "損益", "日記"]] }
+          : { values: [] };
+        return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+      }
+      return realFetch(url, opts);
+    };
+  });
+  await page.evaluate(async () => {
+    SheetsAPI.readRange = async (id, range) =>
+      range.includes("A1:E1") ? [["日付", "純資産額", "入出金", "損益", "日記"]] : [];
+    setSetting(APP_CONFIG.storageKeys.clientId, "fake-client-id");
+    setSetting(APP_CONFIG.storageKeys.sheetId, "fake-sheet-id");
+    setSetting(APP_CONFIG.storageKeys.sheetName, "Sheet1");
+    await onLoginSuccess("fake-token-cache-test", 3600);
+  });
+  const cacheSaved = await page.evaluate(() => ({
+    token: getSetting(APP_CONFIG.storageKeys.accessToken),
+    expiresAt: Number(getSetting(APP_CONFIG.storageKeys.accessTokenExpiresAt)),
+  }));
+  cacheSaved.token === "fake-token-cache-test" && cacheSaved.expiresAt > Date.now()
+    ? ok("ログイン成功時にトークンがキャッシュ(localStorage)へ保存された")
+    : fail(`トークンがキャッシュされていない: ${JSON.stringify(cacheSaved)}`);
+
+  await page.reload({ waitUntil: "load" });
+  await page.waitForTimeout(300);
+  const restoredState = await page.evaluate(() => ({
+    signedIn: !document.getElementById("signed-in-area").hidden,
+    token: typeof currentAccessToken !== "undefined" ? currentAccessToken : null,
+  }));
+  restoredState.signedIn && restoredState.token === "fake-token-cache-test"
+    ? ok("再読み込みしても、キャッシュ済みトークンでログイン状態が自動復元された(再ログイン不要)")
+    : fail(`再読み込み後にログイン状態が復元されなかった: ${JSON.stringify(restoredState)}`);
+
+  await page.evaluate(() => {
+    Auth.revoke = (token, done) => done();
+  });
+  await page.click("#signout-btn");
+  await page.waitForTimeout(200);
+  const afterLogout = await page.evaluate(() => ({
+    token: getSetting(APP_CONFIG.storageKeys.accessToken),
+    explicitLogout: getSetting(APP_CONFIG.storageKeys.explicitLogout),
+  }));
+  afterLogout.token === "" && afterLogout.explicitLogout === "1"
+    ? ok("ログアウトでキャッシュされたトークンが消え、自動再ログインしないフラグが立った")
+    : fail(`ログアウト後の状態が期待と違う: ${JSON.stringify(afterLogout)}`);
+
   // ログイン状態とSheets APIを偽装する。
   await page.evaluate(async () => {
     window.__fakeRows = [];
