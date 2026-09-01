@@ -47,3 +47,4 @@ OAuthクライアントID・スプレッドシートIDはlocalStorage保存の�
 
 - ヘッドレスChromiumがこの環境に用意されている(`/opt/pw-browsers/chromium-*/chrome-linux/chrome`)。`npm install playwright`すれば`require("playwright")`でこの環境に用意された内容が使える。
 - ただしこの開発環境からは `accounts.google.com` 等Google本体のドメインへの実通信はネットワークポリシーでブロックされている。本物のGoogleログイン画面をまたぐ部分(リダイレクト後にURLフラグメントへトークンが付いて戻ってくる、という前提)は、実際のURLを直接開いてトークン付きで戻ってきた状態を`page.goto("http://localhost:8123/#access_token=...")`のように再現してテストする(`test/smoke-test.js`参照)。実際にGoogle側と疎通する部分そのものは、この環境では自動テストできない、という限界を認識しておくこと。
+- 同様に `cdnjs.cloudflare.com`(グラフ画面のChart.js読み込み元)もこの環境からはブロックされている。npmレジストリ(`registry.npmjs.org`)は使えるので、`npm pack chart.js@4.4.4` して展開した`package/dist/chart.umd.js`をローカルに置き、`SMOKE_TEST_CHARTJS_LOCAL_PATH`環境変数にそのパスを指定して`test/smoke-test.js`を実行すれば、cdnjsへのリクエストをそのファイルで代用してグラフ画面もテストできる。本番のGitHub Pages上では通常のインターネット接続からcdnjsに到達できるので、index.html側の読み込み先はcdnjsのままでよい(このワークアラウンドはこの開発環境でのテスト時のみ必要)。

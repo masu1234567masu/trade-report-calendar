@@ -341,6 +341,56 @@ table th, table td {
   margin: 0 0 4px 0;
 }
 
+.period-tabs, .metric-toggle {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.period-btn, .metric-btn {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.period-btn.active, .metric-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.graph-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+}
+
+.graph-total {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.graph-canvas-wrap {
+  position: relative;
+  height: 200px;
+  margin-bottom: 20px;
+}
+
+.graph-canvas-wrap-bottom {
+  height: 220px;
+  margin-bottom: 0;
+}
+
 .build-footer {
   text-align: center;
   color: var(--text-dim);

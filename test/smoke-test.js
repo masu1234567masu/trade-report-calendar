@@ -9,10 +9,18 @@
 //   node test/smoke-test.js
 //
 // 画面(グラフ・分析)を追加したら、このスクリプトにも操作手順を足していくこと。
+//
+// グラフ画面はChart.jsをcdnjs.cloudflare.comから読み込む。開発環境から
+// そこへ到達できない場合(このプロジェクトのサンドボックス環境など)は、
+// 事前に `npm pack chart.js@4.4.4` してdist/chart.umd.jsを取り出し、
+// そのパスを SMOKE_TEST_CHARTJS_LOCAL_PATH に指定するとローカルの
+// ファイルで代用してテストできる(CLAUDE.md参照)。
 
+const fs = require("fs");
 const { chromium, devices } = require("playwright");
 
 const BASE_URL = process.env.SMOKE_TEST_URL || "http://localhost:8123/";
+const CHARTJS_LOCAL_PATH = process.env.SMOKE_TEST_CHARTJS_LOCAL_PATH;
 
 function fail(message) {
   console.error(`NG: ${message}`);
@@ -33,6 +41,13 @@ function ok(message) {
   page.on("console", (msg) => {
     if (msg.type() === "error") errors.push(msg.text());
   });
+
+  if (CHARTJS_LOCAL_PATH) {
+    const chartJsContent = fs.readFileSync(CHARTJS_LOCAL_PATH, "utf-8");
+    await page.route("https://cdnjs.cloudflare.com/**", (route) =>
+      route.fulfill({ status: 200, contentType: "application/javascript", body: chartJsContent })
+    );
+  }
 
   await page.goto(BASE_URL, { waitUntil: "load" });
 
@@ -108,6 +123,10 @@ function ok(message) {
     window.__bulkWrites = [];
     SheetsAPI.writeRange = async (id, range, values) => {
       window.__bulkWrites.push({ range, rowCount: values.length });
+      // ヘッダー行以外(本体データ)は、後続のreadRangeが読めるよう保持しておく。
+      if (!range.includes("A1:E1")) {
+        window.__fakeRows = values;
+      }
       return {};
     };
   });
@@ -126,8 +145,46 @@ function ok(message) {
     fail(`一括インポートの書き込み行数が期待と違う: ${JSON.stringify(bulkWrites)}`);
   }
 
+  // グラフ画面。
+  await page.click('.tab-btn[data-tab="graph"]');
+  await page.waitForTimeout(300);
+  const chartJsLoaded = await page.evaluate(() => typeof Chart !== "undefined");
+  if (!chartJsLoaded) {
+    fail(
+      "Chart.jsが読み込めていない(cdnjs.cloudflare.comに到達できない環境の場合、" +
+        "SMOKE_TEST_CHARTJS_LOCAL_PATHでローカルのchart.umd.jsを指定すること)"
+    );
+  } else {
+    const graphState = await page.evaluate(() => ({
+      cardVisible: !document.getElementById("graph-card").hidden,
+      topChartExists: !!GraphView.charts.top,
+      bottomChartExists: !!GraphView.charts.bottom,
+    }));
+    graphState.cardVisible ? ok("グラフ画面が表示された") : fail("グラフ画面が表示されない");
+    graphState.topChartExists && graphState.bottomChartExists
+      ? ok("上段・下段グラフが両方描画された")
+      : fail("グラフが描画されていない");
+
+    const importRowsLength = await page.evaluate(() => IMPORT_ROWS.length);
+
+    await page.click('.period-btn[data-period="all"]');
+    await page.waitForTimeout(200);
+    const allPeriodLen = await page.evaluate(() => GraphView.charts.top.data.labels.length);
+    allPeriodLen === importRowsLength
+      ? ok(`全期間タブでインポート済み${allPeriodLen}行が反映された`)
+      : fail(`全期間タブのデータ件数が期待と違う: ${allPeriodLen} (期待値 ${importRowsLength})`);
+
+    await page.click('.metric-btn[data-metric="networth"]');
+    await page.waitForTimeout(200);
+    const lastNetWorth = await page.evaluate(() => GraphView.charts.top.data.datasets[0].data.slice(-1)[0]);
+    const expectedLastNetWorth = await page.evaluate(() => IMPORT_ROWS[IMPORT_ROWS.length - 1][1]);
+    lastNetWorth === expectedLastNetWorth
+      ? ok("総資産トグルの表示値がインポートデータの最終値と一致した")
+      : fail(`総資産トグルの値が期待と違う: ${lastNetWorth} (期待値 ${expectedLastNetWorth})`);
+  }
+
   const relevantErrors = errors.filter(
-    (e) => !/accounts\.google\.com|gsi\/client|ERR_CONNECTION|ERR_NAME_NOT_RESOLVED|favicon/.test(e)
+    (e) => !/accounts\.google\.com|gsi\/client|cdnjs\.cloudflare\.com|ERR_CONNECTION|ERR_NAME_NOT_RESOLVED|favicon/.test(e)
   );
   if (relevantErrors.length > 0) {
     fail(`コンソールエラーあり:\n${relevantErrors.join("\n")}`);

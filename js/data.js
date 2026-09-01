@@ -57,10 +57,22 @@ const TradeData = {
       e.pl = prevNetWorth === null ? null : e.netWorth - prevNetWorth - e.cashFlow;
       prevNetWorth = e.netWorth;
     });
+    this.sortedEntries = withNetWorth;
   },
 
   getEntry(dateStr) {
     return this.entriesByDate.get(dateStr) || null;
+  },
+
+  // 純資産額が記録されている行を日付昇順で返す(損益計算済み)。
+  // グラフ・分析画面で使う。
+  getSortedEntries() {
+    return this.sortedEntries || [];
+  },
+
+  // from <= date <= to (両端含む、YYYY-MM-DD文字列比較)の範囲を返す。
+  getEntriesInRange(from, to) {
+    return this.getSortedEntries().filter((e) => e.date >= from && e.date <= to);
   },
 
   async upsertEntry(dateStr, { netWorth, cashFlow, diary }) {
