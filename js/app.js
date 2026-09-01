@@ -72,6 +72,10 @@ el.signinBtn.addEventListener("click", () => {
     log("エラー: 先にOAuthクライアントIDを設定して保存してください");
     return;
   }
+  if (typeof google === "undefined" || !google.accounts) {
+    log("エラー: Googleログイン機能の読み込みに失敗しました。通信環境を確認し、ページを再読み込みしてから試してください");
+    return;
+  }
   Auth.init(
     clientId,
     async (accessToken) => {
