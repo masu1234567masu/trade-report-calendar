@@ -74,6 +74,7 @@ let confirmTimer = null;
 
 const el = {
   todayLabel: document.getElementById("today-label"),
+  todayLabelBtn: document.getElementById("today-label-btn"),
   progressBadge: document.getElementById("progress-badge"),
   itemList: document.getElementById("item-list"),
   emptyMsg: document.getElementById("empty-msg"),
@@ -81,6 +82,13 @@ const el = {
   addForm: document.getElementById("add-form"),
   addInput: document.getElementById("add-input"),
   addCancelBtn: document.getElementById("add-cancel-btn"),
+  calendarOverlay: document.getElementById("calendar-overlay"),
+  calMonthLabel: document.getElementById("cal-month-label"),
+  calendarDays: document.getElementById("calendar-days"),
+  calPrevBtn: document.getElementById("cal-prev-btn"),
+  calNextBtn: document.getElementById("cal-next-btn"),
+  calCloseBtn: document.getElementById("cal-close-btn"),
+  dayDetail: document.getElementById("day-detail"),
 };
 
 function isChecked(itemId, dateStr) {
@@ -196,6 +204,104 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+function formatDateJp(dateStr) {
+  const [y, m, d] = dateStr.split("-");
+  return `${y}年${Number(m)}月${Number(d)}日`;
+}
+
+// ---- 0時をまたいだら自動で当日分の表示に切り替える ----
+// iOS Safariはバックグラウンド中setIntervalを間引く/止めることがあるため、
+// タイマーだけに頼らず、画面に戻ってきたタイミング(visibilitychange/focus/pageshow)
+// でも必ず日付をチェックし直す。
+let renderedDate = todayStr();
+
+function checkDateRollover() {
+  const current = todayStr();
+  if (current !== renderedDate) {
+    renderedDate = current;
+    confirmingDeleteId = null;
+    clearTimeout(confirmTimer);
+    render();
+  }
+}
+
+setInterval(checkDateRollover, 30000);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) checkDateRollover();
+});
+window.addEventListener("focus", checkDateRollover);
+window.addEventListener("pageshow", checkDateRollover);
+
+// ---- カレンダー(月表示で過去の達成状況を見る) ----
+let calCursor = new Date();
+
+function openCalendar() {
+  calCursor = new Date();
+  calCursor.setDate(1);
+  el.calendarOverlay.hidden = false;
+  renderCalendar();
+}
+
+function closeCalendar() {
+  el.calendarOverlay.hidden = true;
+}
+
+function renderCalendar() {
+  const year = calCursor.getFullYear();
+  const month = calCursor.getMonth();
+  el.calMonthLabel.textContent = `${year}年${month + 1}月`;
+  el.dayDetail.hidden = true;
+  el.calendarDays.innerHTML = "";
+
+  const firstWeekday = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = todayStr();
+
+  for (let i = 0; i < firstWeekday; i++) {
+    const blank = document.createElement("div");
+    blank.className = "cal-day cal-day-blank";
+    el.calendarDays.appendChild(blank);
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    // その日の時点で既に存在していた項目だけを分母にする(後から追加した項目で
+    // 過去の達成率を不当に下げないため)。
+    const existingItems = items.filter((it) => it.addedDate <= dateStr);
+    const doneCount = existingItems.filter((it) => isChecked(it.id, dateStr)).length;
+
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "cal-day";
+    if (dateStr === today) cell.classList.add("cal-day-today");
+    if (existingItems.length > 0) {
+      const ratio = doneCount / existingItems.length;
+      if (ratio === 1) cell.classList.add("cal-day-full");
+      else if (ratio > 0) cell.classList.add("cal-day-partial");
+    }
+    cell.innerHTML =
+      `<span class="cal-day-num">${d}</span>` +
+      (existingItems.length ? `<span class="cal-day-ratio">${doneCount}/${existingItems.length}</span>` : "");
+    cell.addEventListener("click", () => showDayDetail(dateStr, existingItems));
+    el.calendarDays.appendChild(cell);
+  }
+}
+
+function showDayDetail(dateStr, existingItems) {
+  el.dayDetail.hidden = false;
+  if (existingItems.length === 0) {
+    el.dayDetail.innerHTML = `<p class="day-detail-empty">${formatDateJp(dateStr)}はまだ項目がありませんでした。</p>`;
+    return;
+  }
+  const rows = existingItems
+    .map((it) => {
+      const done = isChecked(it.id, dateStr);
+      return `<li class="day-detail-row${done ? " done" : ""}">${done ? iconCheck() : '<span class="day-detail-dot"></span>'}<span>${escapeHtml(it.label)}</span></li>`;
+    })
+    .join("");
+  el.dayDetail.innerHTML = `<p class="day-detail-date">${formatDateJp(dateStr)}の記録</p><ul class="day-detail-list">${rows}</ul>`;
+}
+
 el.itemList.addEventListener("click", (e) => {
   const btn = e.target.closest("button[data-action]");
   if (!btn) return;
@@ -253,6 +359,20 @@ el.addForm.addEventListener("submit", (e) => {
   el.addForm.hidden = true;
   el.addOpenBtn.hidden = false;
   render();
+});
+
+el.todayLabelBtn.addEventListener("click", openCalendar);
+el.calCloseBtn.addEventListener("click", closeCalendar);
+el.calendarOverlay.addEventListener("click", (e) => {
+  if (e.target === el.calendarOverlay) closeCalendar();
+});
+el.calPrevBtn.addEventListener("click", () => {
+  calCursor.setMonth(calCursor.getMonth() - 1);
+  renderCalendar();
+});
+el.calNextBtn.addEventListener("click", () => {
+  calCursor.setMonth(calCursor.getMonth() + 1);
+  renderCalendar();
 });
 
 render();
