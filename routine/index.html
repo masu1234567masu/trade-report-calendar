@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ルーティンチェックリスト</title>
+
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ルーティン">
+<meta name="theme-color" content="#0b0f14">
+
+<link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+
+<header class="app-header">
+  <div class="header-titles">
+    <h1>ルーティンチェックリスト</h1>
+    <p id="today-label" class="today-label"></p>
+  </div>
+  <div id="progress-badge" class="progress-badge">0/0</div>
+</header>
+
+<main>
+  <ul id="item-list" class="item-list"></ul>
+
+  <div id="add-row" class="add-row">
+    <button id="add-open-btn" class="add-open-btn" type="button">
+      <span class="plus">＋</span> 項目を追加
+    </button>
+    <form id="add-form" class="add-form" hidden>
+      <input type="text" id="add-input" placeholder="項目名を入力" autocomplete="off">
+      <div class="add-form-actions">
+        <button type="submit" class="btn btn-primary">追加</button>
+        <button type="button" id="add-cancel-btn" class="btn btn-ghost">キャンセル</button>
+      </div>
+    </form>
+  </div>
+
+  <p id="empty-msg" class="empty-msg" hidden>項目がありません。「＋ 項目を追加」から追加してください。</p>
+</main>
+
+<footer class="build-footer">routine build: 1</footer>
+
+<script src="app.js?v=1"></script>
+</body>
+</html>
