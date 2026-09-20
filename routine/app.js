@@ -130,6 +130,10 @@ function computeStreak(itemId) {
   return { streak, lastDate: checkedDates[0] };
 }
 
+function daysBetween(fromDateStr, toDateStr) {
+  return Math.round((new Date(toDateStr) - new Date(fromDateStr)) / 86400000);
+}
+
 function formatLastDate(dateStr) {
   const [y, m, d] = dateStr.split("-");
   return `${Number(m)}/${Number(d)}`;
@@ -161,6 +165,15 @@ function render() {
     const missedYesterday = !isNewToday && !isChecked(item.id, yesterday);
     const { streak, lastDate } = computeStreak(item.id);
 
+    // 「何日間チェックされていないか」。一度もチェックしたことがない項目は
+    // 追加日からの経過日数を代わりに使う(追加当日はまだ未達成扱いにしない)。
+    let neglectedDays = null;
+    if (lastDate) {
+      neglectedDays = daysBetween(lastDate, today);
+    } else if (item.addedDate !== today) {
+      neglectedDays = daysBetween(item.addedDate, today);
+    }
+
     const li = document.createElement("li");
     li.className = "item-row" + (checkedToday ? " checked" : "") + (missedYesterday ? " missed-yesterday" : "");
     li.dataset.id = item.id;
@@ -180,9 +193,16 @@ function render() {
     }
 
     const metaParts = [];
-    if (missedYesterday) metaParts.push(`<span class="missed-badge">前日未達成</span>`);
-    if (streak >= 2) metaParts.push(`<span class="streak-badge">🔥${streak}日連続</span>`);
-    else if (lastDate && lastDate !== today) metaParts.push(`<span>前回: ${formatLastDate(lastDate)}</span>`);
+    if (neglectedDays !== null && neglectedDays >= 2) {
+      metaParts.push(`<span class="missed-badge">${neglectedDays}日間未達成</span>`);
+    } else if (missedYesterday) {
+      metaParts.push(`<span class="missed-badge">前日未達成</span>`);
+    }
+    if (streak >= 2 && (neglectedDays === null || neglectedDays < 2)) {
+      metaParts.push(`<span class="streak-badge">🔥${streak}日連続</span>`);
+    } else if ((neglectedDays === null || neglectedDays < 2) && lastDate && lastDate !== today) {
+      metaParts.push(`<span>前回: ${formatLastDate(lastDate)}</span>`);
+    }
 
     li.innerHTML = `
       <button class="item-check${checkedToday ? " checked" : ""}" data-action="toggle" aria-label="完了にする">${checkedToday ? iconCheck() : ""}</button>
