@@ -72,6 +72,7 @@ let checks = loadChecks();
 let confirmingDeleteId = null;
 let confirmTimer = null;
 let reorderMode = false;
+let editingId = null;
 
 function moveItem(itemId, direction) {
   const idx = items.findIndex((it) => it.id === itemId);
@@ -162,6 +163,10 @@ function iconTrash() {
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>`;
 }
 
+function iconEdit() {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>`;
+}
+
 function render() {
   const today = todayStr();
   const yesterday = todayStr(-1);
@@ -209,6 +214,24 @@ function render() {
     li.className = "item-row" + (checkedToday ? " checked" : "") + (missedYesterday ? " missed-yesterday" : "");
     li.dataset.id = item.id;
 
+    if (editingId === item.id) {
+      li.innerHTML = `
+        <form class="edit-form-row" data-id="${item.id}">
+          <input type="text" class="edit-input" autocomplete="off">
+          <div class="edit-form-actions">
+            <button type="button" class="btn btn-ghost" data-action="cancel-edit">キャンセル</button>
+            <button type="submit" class="btn btn-primary">保存</button>
+          </div>
+        </form>
+      `;
+      el.itemList.appendChild(li);
+      const input = li.querySelector(".edit-input");
+      input.value = item.label;
+      input.focus();
+      input.select();
+      return;
+    }
+
     if (confirmingDeleteId === item.id) {
       li.innerHTML = `
         <div class="confirm-delete">
@@ -241,6 +264,7 @@ function render() {
         <div class="item-label">${escapeHtml(item.label)}</div>
         ${metaParts.length ? `<div class="item-meta">${metaParts.join("")}</div>` : ""}
       </div>
+      <button class="item-edit" data-action="edit" aria-label="編集">${iconEdit()}</button>
       <button class="item-delete" data-action="delete" aria-label="削除">${iconTrash()}</button>
     `;
     el.itemList.appendChild(li);
@@ -364,7 +388,16 @@ el.itemList.addEventListener("click", (e) => {
     const today = todayStr();
     setChecked(itemId, today, !isChecked(itemId, today));
     render();
+  } else if (action === "edit") {
+    editingId = itemId;
+    confirmingDeleteId = null;
+    clearTimeout(confirmTimer);
+    render();
+  } else if (action === "cancel-edit") {
+    editingId = null;
+    render();
   } else if (action === "delete") {
+    editingId = null;
     confirmingDeleteId = itemId;
     clearTimeout(confirmTimer);
     confirmTimer = setTimeout(() => {
@@ -389,11 +422,27 @@ el.itemList.addEventListener("click", (e) => {
   }
 });
 
+el.itemList.addEventListener("submit", (e) => {
+  const form = e.target.closest(".edit-form-row");
+  if (!form) return;
+  e.preventDefault();
+  const itemId = form.dataset.id;
+  const newLabel = form.querySelector(".edit-input").value.trim();
+  if (newLabel) {
+    const item = items.find((it) => it.id === itemId);
+    if (item) item.label = newLabel;
+    saveJSON(STORAGE_KEYS.items, items);
+  }
+  editingId = null;
+  render();
+});
+
 el.reorderToggleBtn.addEventListener("click", () => {
   reorderMode = !reorderMode;
   el.reorderToggleBtn.textContent = reorderMode ? "完了" : "↕ 並び替え";
   el.reorderToggleBtn.classList.toggle("active", reorderMode);
   confirmingDeleteId = null;
+  editingId = null;
   clearTimeout(confirmTimer);
   render();
 });

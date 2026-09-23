@@ -214,6 +214,41 @@ main {
   color: var(--accent);
 }
 
+.item-edit {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.item-edit svg { width: 17px; height: 17px; }
+.item-edit:hover { color: var(--accent); background: var(--accent-soft); }
+
+.edit-form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+}
+.edit-input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 10px 12px;
+  font-size: 0.92rem;
+}
+.edit-input:focus { outline: none; border-color: var(--accent); }
+.edit-form-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
 .item-delete {
   flex-shrink: 0;
   width: 34px;
