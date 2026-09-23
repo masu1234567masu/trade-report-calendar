@@ -22,8 +22,18 @@ const INITIAL_ITEMS = [
   "AI作業途中作業確認",
 ];
 
-function todayStr(offsetDays = 0) {
+// 1日の区切りを0時ではなく午前4時にする(夜更かしして日付が変わっても
+// 「今日」の続きとして扱いたいため)。午前0:00〜3:59はまだ前日扱いになる。
+const DAY_START_HOUR = 4;
+
+function appNow() {
   const d = new Date();
+  d.setHours(d.getHours() - DAY_START_HOUR);
+  return d;
+}
+
+function todayStr(offsetDays = 0) {
+  const d = appNow();
   d.setDate(d.getDate() + offsetDays);
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -308,10 +318,10 @@ window.addEventListener("focus", checkDateRollover);
 window.addEventListener("pageshow", checkDateRollover);
 
 // ---- カレンダー(月表示で過去の達成状況を見る) ----
-let calCursor = new Date();
+let calCursor = appNow();
 
 function openCalendar() {
-  calCursor = new Date();
+  calCursor = appNow();
   calCursor.setDate(1);
   el.calendarOverlay.hidden = false;
   renderCalendar();
