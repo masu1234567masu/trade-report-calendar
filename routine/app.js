@@ -71,6 +71,19 @@ let items = loadItems();
 let checks = loadChecks();
 let confirmingDeleteId = null;
 let confirmTimer = null;
+let reorderMode = false;
+
+function moveItem(itemId, direction) {
+  const idx = items.findIndex((it) => it.id === itemId);
+  if (idx === -1) return;
+  const newIdx = idx + direction;
+  if (newIdx < 0 || newIdx >= items.length) return;
+  const tmp = items[idx];
+  items[idx] = items[newIdx];
+  items[newIdx] = tmp;
+  saveJSON(STORAGE_KEYS.items, items);
+  render();
+}
 
 const el = {
   todayLabel: document.getElementById("today-label"),
@@ -78,6 +91,8 @@ const el = {
   progressBadge: document.getElementById("progress-badge"),
   itemList: document.getElementById("item-list"),
   emptyMsg: document.getElementById("empty-msg"),
+  addRow: document.getElementById("add-row"),
+  reorderToggleBtn: document.getElementById("reorder-toggle-btn"),
   addOpenBtn: document.getElementById("add-open-btn"),
   addForm: document.getElementById("add-form"),
   addInput: document.getElementById("add-input"),
@@ -154,12 +169,28 @@ function render() {
 
   el.itemList.innerHTML = "";
   el.emptyMsg.hidden = items.length > 0;
+  el.addRow.hidden = reorderMode;
 
   let doneCount = 0;
 
-  items.forEach((item) => {
+  items.forEach((item, idx) => {
     const checkedToday = isChecked(item.id, today);
     if (checkedToday) doneCount++;
+
+    if (reorderMode) {
+      const li = document.createElement("li");
+      li.className = "item-row reorder-row";
+      li.dataset.id = item.id;
+      li.innerHTML = `
+        <div class="item-main"><div class="item-label">${escapeHtml(item.label)}</div></div>
+        <div class="reorder-controls">
+          <button class="reorder-btn" data-action="move-up" ${idx === 0 ? "disabled" : ""} aria-label="上へ移動">▲</button>
+          <button class="reorder-btn" data-action="move-down" ${idx === items.length - 1 ? "disabled" : ""} aria-label="下へ移動">▼</button>
+        </div>
+      `;
+      el.itemList.appendChild(li);
+      return;
+    }
 
     const isNewToday = item.addedDate === today;
     const missedYesterday = !isNewToday && !isChecked(item.id, yesterday);
@@ -351,7 +382,20 @@ el.itemList.addEventListener("click", (e) => {
     saveJSON(STORAGE_KEYS.items, items);
     confirmingDeleteId = null;
     render();
+  } else if (action === "move-up") {
+    moveItem(itemId, -1);
+  } else if (action === "move-down") {
+    moveItem(itemId, 1);
   }
+});
+
+el.reorderToggleBtn.addEventListener("click", () => {
+  reorderMode = !reorderMode;
+  el.reorderToggleBtn.textContent = reorderMode ? "完了" : "↕ 並び替え";
+  el.reorderToggleBtn.classList.toggle("active", reorderMode);
+  confirmingDeleteId = null;
+  clearTimeout(confirmTimer);
+  render();
 });
 
 el.addOpenBtn.addEventListener("click", () => {
