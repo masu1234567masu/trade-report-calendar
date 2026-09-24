@@ -399,11 +399,26 @@ function ok(message) {
   }));
   monthTabState.cardVisible &&
   monthTabState.periodLabel === "2026年8月" &&
-  monthTabState.metricsCount === 13 &&
+  monthTabState.metricsCount === 6 &&
   monthTabState.dayRowCount > 0 &&
   monthTabState.chartLabelCount === monthTabState.dayRowCount
     ? ok(`分析画面(月間タブ)に${monthTabState.periodLabel}の指標・日別一覧(${monthTabState.dayRowCount}件)・グラフが表示された`)
     : fail(`分析画面(月間タブ)の表示が期待通りでない: ${JSON.stringify(monthTabState)}`);
+
+  // 指標の中身(総損益率が%で出ているか、勝ち数/負け数に勝率/負け率が併記されているか)。
+  const metricsLabelsAndValues = await page.evaluate(() =>
+    Array.from(document.querySelectorAll("#analysis-metrics .metric-item")).map((el) => ({
+      label: el.querySelector(".metric-label").textContent,
+      value: el.querySelector(".metric-value").textContent,
+    }))
+  );
+  const byLabel = Object.fromEntries(metricsLabelsAndValues.map((m) => [m.label, m.value]));
+  const hasReturnPct = /%$/.test(byLabel["総損益率"] || "");
+  const hasWinRate = /^\d+日 \(\d+(\.\d+)?%\)$/.test(byLabel["勝ち数"] || "");
+  const hasLossRate = /^\d+日 \(\d+(\.\d+)?%\)$/.test(byLabel["負け数"] || "");
+  hasReturnPct && hasWinRate && hasLossRate
+    ? ok(`指標の中身が期待通り(総損益率: ${byLabel["総損益率"]} / 勝ち数: ${byLabel["勝ち数"]} / 負け数: ${byLabel["負け数"]})`)
+    : fail(`指標の中身が期待と違う: ${JSON.stringify(byLabel)}`);
 
   // 日別一覧の行をタップすると、カレンダーと同じ記帳モーダルが開く。
   await page.click("#analysis-day-list .drilldown-row-day", { timeout: 5000 }).catch((e) => {
@@ -438,7 +453,7 @@ function ok(message) {
     metricsCount: document.getElementById("analysis-metrics").children.length,
     monthRowCount: document.getElementById("analysis-month-list").children.length,
   }));
-  yearTabState.periodLabel === "2026年" && yearTabState.metricsCount === 13 && yearTabState.monthRowCount > 0
+  yearTabState.periodLabel === "2026年" && yearTabState.metricsCount === 6 && yearTabState.monthRowCount > 0
     ? ok(`分析画面(年間タブ)に${yearTabState.periodLabel}の指標・月別内訳(${yearTabState.monthRowCount}件)が表示された`)
     : fail(`分析画面(年間タブ)の表示が期待通りでない: ${JSON.stringify(yearTabState)}`);
 

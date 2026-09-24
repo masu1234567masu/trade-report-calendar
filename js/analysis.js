@@ -11,14 +11,14 @@ function formatPct(n) {
   return (n >= 0 ? "+" : "") + n.toFixed(1) + "%";
 }
 
-function formatFactor(n) {
-  if (n === null || n === undefined) return "-";
-  if (!isFinite(n)) return "∞";
-  return n.toFixed(2);
-}
-
 function formatCount(n) {
   return `${n}日`;
+}
+
+// 勝率・負け率など、単純な割合(符号なし)の表示用。計算不能ならnullを返す。
+function formatRate(n) {
+  if (n === null || n === undefined || !isFinite(n)) return null;
+  return `${n.toFixed(1)}%`;
 }
 
 // null(基準なしで計算不能)を"損失"側に誤分類しないためのヘルパー。
@@ -59,9 +59,6 @@ function computeMetrics(entries) {
   const totalDeposit = entries.filter((e) => e.cashFlow > 0).reduce((s, e) => s + e.cashFlow, 0);
   const totalWithdrawal = entries.filter((e) => e.cashFlow < 0).reduce((s, e) => s + e.cashFlow, 0);
 
-  const profitFactor = grossLoss === 0 ? (grossProfit > 0 ? Infinity : null) : grossProfit / Math.abs(grossLoss);
-  const recoveryFactor = maxDrawdown === 0 ? (totalPL > 0 ? Infinity : null) : totalPL / Math.abs(maxDrawdown);
-
   return {
     totalPL,
     grossProfit,
@@ -74,8 +71,6 @@ function computeMetrics(entries) {
     maxDrawdown,
     totalDeposit,
     totalWithdrawal,
-    profitFactor,
-    recoveryFactor,
   };
 }
 
@@ -244,25 +239,20 @@ const AnalysisView = {
   // 月間・年間タブ共通: 選択中の期間の詳細指標。
   _renderDetail(fullEntries, periodEntries) {
     const m = computeMetrics(periodEntries);
-    const avgProfit = m.winCount ? m.grossProfit / m.winCount : 0;
-    const avgLoss = m.lossCount ? m.grossLoss / m.lossCount : 0;
+    const periodPct = periodReturnPct(fullEntries, periodEntries, m.totalPL);
+    const winLossTotal = m.winCount + m.lossCount;
+    const winRateStr = winLossTotal ? formatRate((m.winCount / winLossTotal) * 100) : null;
+    const lossRateStr = winLossTotal ? formatRate((m.lossCount / winLossTotal) * 100) : null;
 
     const wrap = this.el.metrics;
     wrap.innerHTML = "";
     const rows = [
       ["総損益", formatYen(m.totalPL), m.totalPL >= 0 ? "profit" : "loss"],
-      ["総利益", formatYen(m.grossProfit), "profit"],
-      ["総損失", formatYen(m.grossLoss), "loss"],
-      ["平均利益", formatYen(avgProfit), "profit"],
-      ["平均損失", formatYen(avgLoss), "loss"],
-      ["平均リターン", formatPct(m.avgReturnPct), null],
+      ["総損益率", formatPct(periodPct), pctColorClass(periodPct)],
       ["最大利益", m.maxProfit !== null ? formatYen(m.maxProfit) : "-", m.maxProfit !== null ? "profit" : null],
       ["最大損失", m.maxLoss !== null ? formatYen(m.maxLoss) : "-", m.maxLoss !== null ? "loss" : null],
-      ["勝ち数", formatCount(m.winCount), null],
-      ["負け数", formatCount(m.lossCount), null],
-      ["プロフィットファクター", formatFactor(m.profitFactor), null],
-      ["リカバリーファクター", formatFactor(m.recoveryFactor), null],
-      ["最大ドローダウン", formatYen(m.maxDrawdown), "loss"],
+      ["勝ち数", winRateStr ? `${m.winCount}日 (${winRateStr})` : formatCount(m.winCount), null],
+      ["負け数", lossRateStr ? `${m.lossCount}日 (${lossRateStr})` : formatCount(m.lossCount), null],
     ];
     rows.forEach(([label, value, colorClass]) => wrap.appendChild(this._metricItem(label, value, colorClass)));
   },
