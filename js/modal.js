@@ -1,4 +1,4 @@
-// 日付タップで開く記帳モーダル(純資産額・入出金・日記)。
+// 日付タップで開く記帳モーダル(朝作戦&fanda・report・純資産額・入出金)。
 
 const EntryModal = {
   currentDate: null,
@@ -6,9 +6,10 @@ const EntryModal = {
   el: {
     overlay: document.getElementById("entry-modal-overlay"),
     dateLabel: document.getElementById("entry-modal-date"),
+    morningInput: document.getElementById("entry-morning-input"),
+    reportInput: document.getElementById("entry-report-input"),
     netWorthInput: document.getElementById("entry-networth-input"),
     cashFlowInput: document.getElementById("entry-cashflow-input"),
-    diaryInput: document.getElementById("entry-diary-input"),
     saveBtn: document.getElementById("entry-save-btn"),
     cancelBtn: document.getElementById("entry-cancel-btn"),
     errorMsg: document.getElementById("entry-error-msg"),
@@ -26,12 +27,13 @@ const EntryModal = {
     this.currentDate = dateStr;
     const entry = TradeData.getEntry(dateStr);
     this.el.dateLabel.textContent = dateStr;
+    this.el.morningInput.value = entry ? entry.morning : "";
+    this.el.reportInput.value = entry ? entry.report : "";
     this.el.netWorthInput.value = entry && entry.netWorth !== null ? entry.netWorth : "";
     this.el.cashFlowInput.value = entry ? entry.cashFlow : 0;
-    this.el.diaryInput.value = entry ? entry.diary : "";
     this.el.errorMsg.hidden = true;
     this.el.overlay.hidden = false;
-    this.el.netWorthInput.focus();
+    this.el.morningInput.focus();
   },
 
   close() {
@@ -45,8 +47,8 @@ const EntryModal = {
 
   async save() {
     const netWorthRaw = this.el.netWorthInput.value.trim();
-    if (netWorthRaw === "" || Number.isNaN(Number(netWorthRaw))) {
-      this.showError("純資産額を数値で入力してください");
+    if (netWorthRaw !== "" && Number.isNaN(Number(netWorthRaw))) {
+      this.showError("純資産額を数値で入力してください(空欄も可)");
       return;
     }
     const cashFlowRaw = this.el.cashFlowInput.value.trim();
@@ -58,9 +60,10 @@ const EntryModal = {
     this.el.saveBtn.disabled = true;
     try {
       await TradeData.upsertEntry(this.currentDate, {
-        netWorth: Number(netWorthRaw),
+        netWorth: netWorthRaw === "" ? null : Number(netWorthRaw),
         cashFlow: cashFlowRaw === "" ? 0 : Number(cashFlowRaw),
-        diary: this.el.diaryInput.value,
+        morning: this.el.morningInput.value,
+        report: this.el.reportInput.value,
       });
       this.close();
       CalendarView.render();

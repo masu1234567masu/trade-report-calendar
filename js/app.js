@@ -267,7 +267,7 @@ el.writeTestBtn.addEventListener("click", async () => {
 
 el.importSummary.textContent =
   `対象: ${IMPORT_ROWS.length}行(${IMPORT_ROWS[0][0]} 〜 ${IMPORT_ROWS[IMPORT_ROWS.length - 1][0]})。` +
-  "列: 日付/純資産額/入出金/損益(空欄・アプリ側で都度計算)/日記。";
+  "列: 日付/純資産額/入出金/損益(空欄・アプリ側で都度計算)/朝作戦&fanda。";
 
 el.importBtn.addEventListener("click", async () => {
   const { sheetId, sheetName } = currentSettings();
@@ -282,7 +282,7 @@ el.importBtn.addEventListener("click", async () => {
     const targetRange = `${sheetName}!A${startRow}:E${endRow}`;
 
     log("ヘッダー行を書き込み中...");
-    await SheetsAPI.writeRange(sheetId, `${sheetName}!A1:E1`, [["日付", "純資産額", "入出金", "損益", "日記"]]);
+    await SheetsAPI.writeRange(sheetId, `${sheetName}!A1:E1`, [["日付", "純資産額", "入出金", "損益", "朝作戦&fanda"]]);
 
     log(`${IMPORT_ROWS.length}行を書き込み中... (${targetRange})`);
     await SheetsAPI.writeRange(sheetId, targetRange, IMPORT_ROWS);

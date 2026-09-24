@@ -93,8 +93,8 @@ function ok(message) {
     const realFetch = window.fetch;
     window.fetch = (url, opts) => {
       if (typeof url === "string" && url.includes("sheets.googleapis.com")) {
-        const body = url.includes("A1%3AE1")
-          ? { values: [["日付", "純資産額", "入出金", "損益", "日記"]] }
+        const body = url.includes("A1%3AF1")
+          ? { values: [["日付", "純資産額", "入出金", "損益", "朝作戦&fanda", "report"]] }
           : { values: [] };
         return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
       }
@@ -103,7 +103,7 @@ function ok(message) {
   });
   await page.evaluate(async () => {
     SheetsAPI.readRange = async (id, range) =>
-      range.includes("A1:E1") ? [["日付", "純資産額", "入出金", "損益", "日記"]] : [];
+      range.includes("A1:F1") ? [["日付", "純資産額", "入出金", "損益", "朝作戦&fanda", "report"]] : [];
     setSetting(APP_CONFIG.storageKeys.clientId, "fake-client-id");
     setSetting(APP_CONFIG.storageKeys.sheetId, "fake-sheet-id");
     setSetting(APP_CONFIG.storageKeys.sheetName, "Sheet1");
@@ -144,7 +144,7 @@ function ok(message) {
   await page.evaluate(async () => {
     window.__fakeRows = [];
     SheetsAPI.readRange = async (id, range) => {
-      if (range.includes("A1:E1")) return [["日付", "純資産額", "入出金", "損益", "日記"]];
+      if (range.includes("A1:F1")) return [["日付", "純資産額", "入出金", "損益", "朝作戦&fanda", "report"]];
       return window.__fakeRows;
     };
     SheetsAPI.writeRange = async () => ({});
@@ -188,6 +188,33 @@ function ok(message) {
   const modalOpened = await page.evaluate(() => !document.getElementById("entry-modal-overlay").hidden);
   modalOpened ? ok("モーダルが開いた") : fail("モーダルが開かない");
 
+  // 記入欄の並び順(朝作戦&fanda→report→純資産額→入出金)。
+  const fieldOrder = await page.evaluate(() =>
+    Array.from(document.querySelectorAll(".modal input, .modal textarea")).map((el) => el.id)
+  );
+  const expectedFieldOrder = [
+    "entry-morning-input",
+    "entry-report-input",
+    "entry-networth-input",
+    "entry-cashflow-input",
+  ];
+  JSON.stringify(fieldOrder) === JSON.stringify(expectedFieldOrder)
+    ? ok("記入欄が朝作戦&fanda→report→純資産額→入出金の順になっている")
+    : fail(`記入欄の並び順が期待と違う: ${JSON.stringify(fieldOrder)}`);
+
+  // iOS Safariはinputのフォーカス時、font-sizeが16px未満だと自動でズームしてしまう。
+  // 記入欄はすべて16px以上になっているか。
+  const fontSizes = await page.evaluate((ids) =>
+    ids.map((id) => ({
+      id,
+      px: parseFloat(getComputedStyle(document.getElementById(id)).fontSize),
+    })),
+    ["entry-morning-input", "entry-report-input", "entry-networth-input", "entry-cashflow-input"]
+  );
+  fontSizes.every((f) => f.px >= 16)
+    ? ok("記入欄のフォントサイズが全て16px以上(iOSの自動ズーム対策)")
+    : fail(`16px未満の記入欄がある(iOSでズームする): ${JSON.stringify(fontSizes)}`);
+
   // 保存。
   await page.fill("#entry-networth-input", "1000000");
   await page.click("#entry-save-btn", { timeout: 5000 }).catch((e) => {
@@ -206,6 +233,62 @@ function ok(message) {
   await page.waitForTimeout(200);
   const closedAfterCancel = await page.evaluate(() => document.getElementById("entry-modal-overlay").hidden);
   closedAfterCancel ? ok("キャンセルでモーダルが閉じた") : fail("キャンセルしてもモーダルが閉じない");
+
+  // 純資産額を空欄のまま、朝作戦&fanda/reportだけで保存できるか。
+  await page.evaluate(() => EntryModal.open("2026-01-15"));
+  await page.waitForTimeout(100);
+  await page.fill("#entry-morning-input", "朝作戦テスト");
+  await page.fill("#entry-report-input", "reportテスト");
+  await page.fill("#entry-networth-input", "");
+  await page.click("#entry-save-btn", { timeout: 5000 }).catch((e) => {
+    fail(`空欄保存で保存ボタンをタップできない: ${e.message}`);
+  });
+  await page.waitForTimeout(300);
+  const blankNetWorthState = await page.evaluate(() => ({
+    modalClosed: document.getElementById("entry-modal-overlay").hidden,
+    entry: TradeData.getEntry("2026-01-15"),
+  }));
+  blankNetWorthState.modalClosed &&
+  blankNetWorthState.entry &&
+  blankNetWorthState.entry.netWorth === null &&
+  blankNetWorthState.entry.morning === "朝作戦テスト" &&
+  blankNetWorthState.entry.report === "reportテスト"
+    ? ok("純資産額を空欄のまま、朝作戦&fanda/reportだけで保存できた")
+    : fail(`空欄保存の結果が期待と違う: ${JSON.stringify(blankNetWorthState)}`);
+
+  // 再度開いたとき、純資産額は空欄のまま、朝作戦&fanda/reportは保持されているか。
+  await page.evaluate(() => EntryModal.open("2026-01-15"));
+  await page.waitForTimeout(100);
+  const reopenedState = await page.evaluate(() => ({
+    netWorth: document.getElementById("entry-networth-input").value,
+    morning: document.getElementById("entry-morning-input").value,
+    report: document.getElementById("entry-report-input").value,
+  }));
+  reopenedState.netWorth === "" && reopenedState.morning === "朝作戦テスト" && reopenedState.report === "reportテスト"
+    ? ok("再度開いたときも純資産額は空欄、朝作戦&fanda/reportの内容は保持されていた")
+    : fail(`再オープン時の値が期待と違う: ${JSON.stringify(reopenedState)}`);
+  await page.click("#entry-cancel-btn");
+  await page.waitForTimeout(100);
+
+  // 純資産額なしの日に記録した入出金が、日次損益の計算からこぼれ落ちないか。
+  // (2/2は純資産額なしで5万円入金だけ記録。2/3の純資産額との差分にこの5万円が
+  // 合算されて引かれないと、入金がそのまま利益として誤計算されてしまう)
+  await page.evaluate(() => {
+    window.__fakeRows = [
+      ["2026-02-01", 1000000, 0, "", "", ""],
+      ["2026-02-02", "", 50000, "", "", ""],
+      ["2026-02-03", 1070000, 0, "", "", ""],
+    ];
+  });
+  await page.evaluate(() => loadCalendarData());
+  await page.waitForTimeout(200);
+  const plWithGapDay = await page.evaluate(() => {
+    const e = TradeData.getEntry("2026-02-03");
+    return e ? e.pl : null;
+  });
+  plWithGapDay === 20000
+    ? ok("純資産額なしの日の入出金が、次の純資産額記入日の損益計算に正しく合算された")
+    : fail(`空欄日を挟んだ損益計算が期待と違う: ${plWithGapDay} (期待値 20000)`);
 
   // 過去データ一括インポート。
   await page.evaluate(() => {

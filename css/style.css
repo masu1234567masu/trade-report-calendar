@@ -74,7 +74,10 @@ label {
   color: var(--text-dim);
 }
 
-input[type="text"] {
+/* font-sizeは16px(1rem)未満だとiOS Safariがinputフォーカス時に
+   自動でズームしてしまうため、必ず16px以上にすること。 */
+input[type="text"],
+input[type="number"] {
   display: block;
   width: 100%;
   margin-top: 6px;
@@ -83,7 +86,7 @@ input[type="text"] {
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  font-size: 0.95rem;
+  font-size: 1rem;
 }
 
 .btn {
@@ -333,7 +336,7 @@ table th, table td {
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-family: inherit;
   resize: vertical;
 }
