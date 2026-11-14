@@ -188,15 +188,15 @@ function ok(message) {
   const modalOpened = await page.evaluate(() => !document.getElementById("entry-modal-overlay").hidden);
   modalOpened ? ok("モーダルが開いた") : fail("モーダルが開かない");
 
-  // 記入欄の並び順(朝作戦&fandaのチップ→report のチップ→純資産額→入出金)。
+  // 記入欄の並び順(純資産額→朝作戦&fandaのチップ→reportのチップ→入出金)。
   const fieldOrder = await page.evaluate(() =>
     Array.from(document.querySelectorAll(".modal input[type='text'], .modal input[type='number']")).map(
       (el) => el.id
     )
   );
-  const expectedFieldOrder = ["entry-fanda-input", "entry-report-input", "entry-networth-input", "entry-cashflow-input"];
+  const expectedFieldOrder = ["entry-networth-input", "entry-fanda-input", "entry-report-input", "entry-cashflow-input"];
   JSON.stringify(fieldOrder) === JSON.stringify(expectedFieldOrder)
-    ? ok("記入欄が朝作戦&fanda→report→純資産額→入出金の順になっている")
+    ? ok("記入欄が純資産額→朝作戦&fanda→report→入出金の順になっている")
     : fail(`記入欄の並び順が期待と違う: ${JSON.stringify(fieldOrder)}`);
 
   // iOS Safariはinputのフォーカス時、font-sizeが16px未満だと自動でズームしてしまう。
