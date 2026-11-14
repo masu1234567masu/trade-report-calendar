@@ -442,13 +442,13 @@ function ok(message) {
   }));
   monthTabState.cardVisible &&
   monthTabState.periodLabel === "2026年8月" &&
-  monthTabState.metricsCount === 6 &&
+  monthTabState.metricsCount === 3 &&
   monthTabState.dayRowCount > 0 &&
   monthTabState.chartLabelCount === monthTabState.dayRowCount
     ? ok(`分析画面(月間タブ)に${monthTabState.periodLabel}の指標・日別一覧(${monthTabState.dayRowCount}件)・グラフが表示された`)
     : fail(`分析画面(月間タブ)の表示が期待通りでない: ${JSON.stringify(monthTabState)}`);
 
-  // 指標の中身(総損益率が%で出ているか、勝ち数/負け数に勝率/負け率が併記されているか)。
+  // 指標の中身(勝ち数/負け数に勝率/負け率が併記されているか、削除した項目が出ていないか)。
   const metricsLabelsAndValues = await page.evaluate(() =>
     Array.from(document.querySelectorAll("#analysis-metrics .metric-item")).map((el) => ({
       label: el.querySelector(".metric-label").textContent,
@@ -456,12 +456,12 @@ function ok(message) {
     }))
   );
   const byLabel = Object.fromEntries(metricsLabelsAndValues.map((m) => [m.label, m.value]));
-  const hasReturnPct = /%$/.test(byLabel["総損益率"] || "");
   const hasWinRate = /^\d+日 \(\d+(\.\d+)?%\)$/.test(byLabel["勝ち数"] || "");
   const hasLossRate = /^\d+日 \(\d+(\.\d+)?%\)$/.test(byLabel["負け数"] || "");
-  hasReturnPct && hasWinRate && hasLossRate
-    ? ok(`指標の中身が期待通り(総損益率: ${byLabel["総損益率"]} / 勝ち数: ${byLabel["勝ち数"]} / 負け数: ${byLabel["負け数"]})`)
-    : fail(`指標の中身が期待と違う: ${JSON.stringify(byLabel)}`);
+  const labels = metricsLabelsAndValues.map((m) => m.label).join("/");
+  hasWinRate && hasLossRate && labels === "総損益/勝ち数/負け数"
+    ? ok(`月間タブの指標が3項目(${labels})で、勝ち数: ${byLabel["勝ち数"]} / 負け数: ${byLabel["負け数"]}`)
+    : fail(`月間タブの指標が期待と違う: ${JSON.stringify(byLabel)}`);
 
   // 日別一覧の行をタップすると、カレンダーと同じ記帳モーダルが開く。
   await page.click("#analysis-day-list .drilldown-row-day", { timeout: 5000 }).catch((e) => {
@@ -496,7 +496,7 @@ function ok(message) {
     metricsCount: document.getElementById("analysis-metrics").children.length,
     monthRowCount: document.getElementById("analysis-month-list").children.length,
   }));
-  yearTabState.periodLabel === "2026年" && yearTabState.metricsCount === 6 && yearTabState.monthRowCount > 0
+  yearTabState.periodLabel === "2026年" && yearTabState.metricsCount === 3 && yearTabState.monthRowCount > 0
     ? ok(`分析画面(年間タブ)に${yearTabState.periodLabel}の指標・月別内訳(${yearTabState.monthRowCount}件)が表示された`)
     : fail(`分析画面(年間タブ)の表示が期待通りでない: ${JSON.stringify(yearTabState)}`);
 
@@ -523,11 +523,27 @@ function ok(message) {
     dayListEmpty: document.getElementById("analysis-day-list").children.length === 0,
   }));
   allTabState.navVisibility === "hidden" &&
-  allTabState.metricsCount === 14 &&
+  allTabState.metricsCount === 6 &&
   allTabState.monthListEmpty &&
   allTabState.dayListEmpty
     ? ok("分析画面(全期間タブ)に概要指標が表示され、ナビゲーションは隠れた")
     : fail(`分析画面(全期間タブ)の表示が期待通りでない: ${JSON.stringify(allTabState)}`);
+
+  const overviewItems = await page.evaluate(() =>
+    Array.from(document.querySelectorAll("#analysis-metrics .metric-item")).map((el) => ({
+      label: el.querySelector(".metric-label").textContent,
+      value: el.querySelector(".metric-value").textContent,
+    }))
+  );
+  const overviewLabels = overviewItems.map((m) => m.label).join("/");
+  const overviewBy = Object.fromEntries(overviewItems.map((m) => [m.label, m.value]));
+  // 取り込みデータの入金合計850,000円 − 出金合計700,000円 = 元金150,000円。
+  overviewLabels === "総資産/現状の入金額(元金)/今年のパフォーマンス/今月のパフォーマンス/プラス日数/マイナス日数" &&
+  overviewBy["現状の入金額(元金)"] === "150,000円" &&
+  /^\d+日 \(\d+(\.\d+)?%\)$/.test(overviewBy["プラス日数"]) &&
+  /^\d+日 \(\d+(\.\d+)?%\)$/.test(overviewBy["マイナス日数"])
+    ? ok(`全期間タブの指標が6項目で、元金は${overviewBy["現状の入金額(元金)"]}(入金−出金)と表示された`)
+    : fail(`全期間タブの指標が期待と違う: ${JSON.stringify(overviewBy)}`);
 
   // 古い版を表示したままのアプリを自動で最新に入れ替える仕組み(checkForUpdate)。
   // サーバー上のindex.htmlだけbuild表示が違う状態を偽装して確認する。

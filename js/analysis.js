@@ -31,47 +31,24 @@ function pctColorClass(n) {
 function computeMetrics(entries) {
   const withPL = entries.filter((e) => e.pl !== null);
   const totalPL = withPL.reduce((sum, e) => sum + e.pl, 0);
-  const grossProfit = withPL.filter((e) => e.pl > 0).reduce((sum, e) => sum + e.pl, 0);
-  const grossLoss = withPL.filter((e) => e.pl < 0).reduce((sum, e) => sum + e.pl, 0);
   const winCount = withPL.filter((e) => e.pl > 0).length;
   const lossCount = withPL.filter((e) => e.pl < 0).length;
-  const maxProfit = withPL.length ? Math.max(...withPL.map((e) => e.pl)) : null;
-  const maxLoss = withPL.length ? Math.min(...withPL.map((e) => e.pl)) : null;
-
-  const returns = withPL
-    .map((e) => {
-      const prevNetWorth = e.netWorth - e.pl - e.cashFlow;
-      return prevNetWorth > 0 ? (e.pl / prevNetWorth) * 100 : null;
-    })
-    .filter((r) => r !== null);
-  const avgReturnPct = returns.length ? returns.reduce((s, r) => s + r, 0) / returns.length : null;
-
-  let cum = 0;
-  let peak = 0;
-  let maxDrawdown = 0;
-  withPL.forEach((e) => {
-    cum += e.pl;
-    if (cum > peak) peak = cum;
-    const dd = cum - peak;
-    if (dd < maxDrawdown) maxDrawdown = dd;
-  });
 
   const totalDeposit = entries.filter((e) => e.cashFlow > 0).reduce((s, e) => s + e.cashFlow, 0);
   const totalWithdrawal = entries.filter((e) => e.cashFlow < 0).reduce((s, e) => s + e.cashFlow, 0);
 
-  return {
-    totalPL,
-    grossProfit,
-    grossLoss,
-    winCount,
-    lossCount,
-    maxProfit,
-    maxLoss,
-    avgReturnPct,
-    maxDrawdown,
-    totalDeposit,
-    totalWithdrawal,
-  };
+  return { totalPL, winCount, lossCount, totalDeposit, totalWithdrawal };
+}
+
+// 勝ち数・負け数に併記する勝率・負け率(%)。勝ちも負けも無ければnull。
+function winLossRates(m) {
+  const total = m.winCount + m.lossCount;
+  if (!total) return { win: null, loss: null };
+  return { win: formatRate((m.winCount / total) * 100), loss: formatRate((m.lossCount / total) * 100) };
+}
+
+function countWithRate(count, rateStr) {
+  return rateStr ? `${count}日 (${rateStr})` : formatCount(count);
 }
 
 // fullEntries(全期間, 日付昇順)の中でperiodEntriesが始まる直前の記帳を基準額とした
@@ -166,7 +143,7 @@ const AnalysisView = {
     if (this.periodType === "year") {
       this.el.periodLabel.textContent = `${y}年`;
       const periodEntries = entries.filter((e) => e.date.startsWith(`${y}-`));
-      this._renderDetail(entries, periodEntries);
+      this._renderDetail(periodEntries);
       this._renderChart(periodEntries);
       this._renderMonthList(y, entries);
       this.el.dayList.innerHTML = "";
@@ -174,7 +151,7 @@ const AnalysisView = {
       const m = this.cursorDate.getMonth() + 1;
       this.el.periodLabel.textContent = `${y}年${m}月`;
       const periodEntries = entries.filter((e) => e.date.startsWith(`${y}-${pad2(m)}`));
-      this._renderDetail(entries, periodEntries);
+      this._renderDetail(periodEntries);
       this._renderChart(periodEntries);
       this.el.monthList.innerHTML = "";
       this._renderDayList(periodEntries);
@@ -199,60 +176,40 @@ const AnalysisView = {
   _renderOverview(entries) {
     const m = computeMetrics(entries);
     const currentNetWorth = entries[entries.length - 1].netWorth;
-    // 記録開始時点の純資産額が0(入金前から記帳を始めた等)だと基準が定義できないため、
-    // その場合は総入金額を基準にする。
-    const totalReturnPct = entries[0].netWorth
-      ? (m.totalPL / entries[0].netWorth) * 100
-      : m.totalDeposit > 0
-        ? (m.totalPL / m.totalDeposit) * 100
-        : null;
+    // 現状の元金 = 入金合計 − 出金合計(出金は負の値で記録されているので足す)。
+    const principal = m.totalDeposit + m.totalWithdrawal;
+    const rates = winLossRates(m);
 
     const today = new Date();
     const yearEntries = entries.filter((e) => e.date.startsWith(`${today.getFullYear()}-`));
     const monthEntries = entries.filter((e) => e.date.startsWith(`${today.getFullYear()}-${pad2(today.getMonth() + 1)}`));
-    const yearMetrics = computeMetrics(yearEntries);
-    const monthMetrics = computeMetrics(monthEntries);
-    const yearReturnPct = periodReturnPct(entries, yearEntries, yearMetrics.totalPL);
-    const monthReturnPct = periodReturnPct(entries, monthEntries, monthMetrics.totalPL);
+    const yearReturnPct = periodReturnPct(entries, yearEntries, computeMetrics(yearEntries).totalPL);
+    const monthReturnPct = periodReturnPct(entries, monthEntries, computeMetrics(monthEntries).totalPL);
 
     const wrap = this.el.metrics;
     wrap.innerHTML = "";
     const rows = [
       ["総資産", formatYen(currentNetWorth).replace(/^\+/, ""), null],
-      ["総リターン", formatPct(totalReturnPct), pctColorClass(totalReturnPct)],
+      ["現状の入金額(元金)", formatYen(principal).replace(/^\+/, ""), null],
       ["今年のパフォーマンス", formatPct(yearReturnPct), pctColorClass(yearReturnPct)],
       ["今月のパフォーマンス", formatPct(monthReturnPct), pctColorClass(monthReturnPct)],
-      ["総利益", formatYen(m.grossProfit), "profit"],
-      ["総損失", formatYen(m.grossLoss), "loss"],
-      ["総入金", formatYen(m.totalDeposit), null],
-      ["総出金", formatYen(m.totalWithdrawal), null],
-      ["プラス日数", formatCount(m.winCount), null],
-      ["マイナス日数", formatCount(m.lossCount), null],
-      ["最大利益", m.maxProfit !== null ? formatYen(m.maxProfit) : "-", m.maxProfit !== null ? "profit" : null],
-      ["最大損失", m.maxLoss !== null ? formatYen(m.maxLoss) : "-", m.maxLoss !== null ? "loss" : null],
-      ["平均リターン", formatPct(m.avgReturnPct), null],
-      ["最大ドローダウン", formatYen(m.maxDrawdown), "loss"],
+      ["プラス日数", countWithRate(m.winCount, rates.win), null],
+      ["マイナス日数", countWithRate(m.lossCount, rates.loss), null],
     ];
     rows.forEach(([label, value, colorClass]) => wrap.appendChild(this._metricItem(label, value, colorClass)));
   },
 
   // 月間・年間タブ共通: 選択中の期間の詳細指標。
-  _renderDetail(fullEntries, periodEntries) {
+  _renderDetail(periodEntries) {
     const m = computeMetrics(periodEntries);
-    const periodPct = periodReturnPct(fullEntries, periodEntries, m.totalPL);
-    const winLossTotal = m.winCount + m.lossCount;
-    const winRateStr = winLossTotal ? formatRate((m.winCount / winLossTotal) * 100) : null;
-    const lossRateStr = winLossTotal ? formatRate((m.lossCount / winLossTotal) * 100) : null;
+    const rates = winLossRates(m);
 
     const wrap = this.el.metrics;
     wrap.innerHTML = "";
     const rows = [
       ["総損益", formatYen(m.totalPL), m.totalPL >= 0 ? "profit" : "loss"],
-      ["総損益率", formatPct(periodPct), pctColorClass(periodPct)],
-      ["最大利益", m.maxProfit !== null ? formatYen(m.maxProfit) : "-", m.maxProfit !== null ? "profit" : null],
-      ["最大損失", m.maxLoss !== null ? formatYen(m.maxLoss) : "-", m.maxLoss !== null ? "loss" : null],
-      ["勝ち数", winRateStr ? `${m.winCount}日 (${winRateStr})` : formatCount(m.winCount), null],
-      ["負け数", lossRateStr ? `${m.lossCount}日 (${lossRateStr})` : formatCount(m.lossCount), null],
+      ["勝ち数", countWithRate(m.winCount, rates.win), null],
+      ["負け数", countWithRate(m.lossCount, rates.loss), null],
     ];
     rows.forEach(([label, value, colorClass]) => wrap.appendChild(this._metricItem(label, value, colorClass)));
   },
