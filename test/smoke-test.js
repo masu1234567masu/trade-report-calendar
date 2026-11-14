@@ -529,6 +529,48 @@ function ok(message) {
     ? ok("分析画面(全期間タブ)に概要指標が表示され、ナビゲーションは隠れた")
     : fail(`分析画面(全期間タブ)の表示が期待通りでない: ${JSON.stringify(allTabState)}`);
 
+  // 古い版を表示したままのアプリを自動で最新に入れ替える仕組み(checkForUpdate)。
+  // サーバー上のindex.htmlだけbuild表示が違う状態を偽装して確認する。
+  const pathOf = (url) => new URL(url).pathname;
+  const makeNewerBuildRoute = () => async (route) => {
+    const req = route.request();
+    if (req.resourceType() === "fetch" && pathOf(req.url()) === pathOf(BASE_URL)) {
+      const resp = await route.fetch();
+      const body = (await resp.text()).replace(/build: [^<]*/, "build: FAKE-NEWER-BUILD");
+      await route.fulfill({ response: resp, body });
+    } else {
+      await route.continue();
+    }
+  };
+
+  const updatePage = await context.newPage();
+  await updatePage.route("**/*", makeNewerBuildRoute());
+  const reloadUrls = [];
+  updatePage.on("framenavigated", (frame) => {
+    if (frame === updatePage.mainFrame() && /[?&]r=\d+/.test(frame.url())) reloadUrls.push(frame.url());
+  });
+  await updatePage.goto(BASE_URL, { waitUntil: "load" });
+  await updatePage.waitForURL(/[?&]r=\d+/, { timeout: 6000 }).catch(() => {});
+  await updatePage.waitForTimeout(3500);
+  reloadUrls.length === 1
+    ? ok("サーバー側により新しいbuildがあると、自動で1回だけ再読み込みされた(ループしない)")
+    : fail(`自動更新の再読み込み回数が期待と違う(期待1回): ${reloadUrls.length}回 ${JSON.stringify(reloadUrls)}`);
+  await updatePage.close();
+
+  const editingPage = await context.newPage();
+  await editingPage.route("**/*", makeNewerBuildRoute());
+  await editingPage.goto(BASE_URL, { waitUntil: "load" });
+  await editingPage.evaluate(() => EntryModal.open("2026-01-10"));
+  await editingPage.waitForTimeout(3500);
+  const editingState = await editingPage.evaluate(() => ({
+    reloaded: /[?&]r=\d+/.test(window.location.href),
+    modalOpen: !document.getElementById("entry-modal-overlay").hidden,
+  }));
+  !editingState.reloaded && editingState.modalOpen
+    ? ok("記帳モーダルを開いている間は、新しいbuildがあっても再読み込みせず入力を守った")
+    : fail(`入力中に再読み込みされた/モーダルが閉じた: ${JSON.stringify(editingState)}`);
+  await editingPage.close();
+
   const relevantErrors = errors.filter(
     (e) => !/accounts\.google\.com|gsi\/client|ERR_CONNECTION|ERR_NAME_NOT_RESOLVED|favicon/.test(e)
   );

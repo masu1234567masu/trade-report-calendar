@@ -355,3 +355,53 @@ if (redirectResult && redirectResult.token) {
     }
   }
 }
+
+// ---- 古い版のまま使い続けないための自動更新チェック ----
+// ホーム画面に追加したアプリは、バックグラウンドから戻ってもページが再読み込みされず、
+// 古いbuildのまま動き続けることがある(実際に、公開済みの新しい版が反映されない
+// 状態が何度も起きた)。起動の少し後と、アプリが前面に戻ったときに、サーバー上の
+// index.htmlのbuild表示とこのページのbuild表示を比べ、違っていれば再読み込みする。
+// 入力中(記帳モーダルを開いている・入力欄にフォーカス中)は入力が消えないよう再読み込みしない。
+// 再読み込みの連続(ループ)を避けるため、60秒以内には1回までにする。
+// なお、この仕組みが入る前の古い版を表示しているアプリ自身は、一度手動で
+// 完全に終了して開き直さない限りこのチェックを実行できない。
+const UPDATE_RELOAD_KEY = "trc_update_reload_at";
+
+async function checkForUpdate() {
+  try {
+    const currentBuild = document.querySelector(".build-footer")?.textContent.trim();
+    if (!currentBuild) return;
+    if (/access_token=/.test(window.location.hash)) return;
+
+    const active = document.activeElement;
+    const editing =
+      !document.getElementById("entry-modal-overlay").hidden ||
+      (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA"));
+    if (editing) return;
+
+    const lastReloadAt = Number(sessionStorage.getItem(UPDATE_RELOAD_KEY) || 0);
+    if (Date.now() - lastReloadAt < 60000) return;
+
+    const res = await fetch(window.location.pathname, { cache: "no-store" });
+    if (!res.ok) return;
+    const html = await res.text();
+    const latestBuild = new DOMParser()
+      .parseFromString(html, "text/html")
+      .querySelector(".build-footer")
+      ?.textContent.trim();
+    if (latestBuild && latestBuild !== currentBuild) {
+      sessionStorage.setItem(UPDATE_RELOAD_KEY, String(Date.now()));
+      window.location.replace(`${window.location.pathname}?r=${Date.now()}`);
+    }
+  } catch (e) {
+    // オフライン等で確認できなくても、通常の動作には影響させない。
+  }
+}
+
+setTimeout(checkForUpdate, 1500);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) checkForUpdate();
+});
+window.addEventListener("pageshow", (e) => {
+  if (e.persisted) checkForUpdate();
+});
