@@ -188,34 +188,51 @@ function ok(message) {
   const modalOpened = await page.evaluate(() => !document.getElementById("entry-modal-overlay").hidden);
   modalOpened ? ok("モーダルが開いた") : fail("モーダルが開かない");
 
-  // 記入欄の並び順(朝作戦&fanda→report→純資産額→入出金)。
+  // 記入欄の並び順(朝作戦&fandaのチップ→report のチップ→純資産額→入出金)。
   const fieldOrder = await page.evaluate(() =>
-    Array.from(document.querySelectorAll(".modal input, .modal textarea")).map((el) => el.id)
+    Array.from(document.querySelectorAll(".modal input[type='text'], .modal input[type='number']")).map(
+      (el) => el.id
+    )
   );
-  const expectedFieldOrder = [
-    "entry-morning-input",
-    "entry-report-input",
-    "entry-networth-input",
-    "entry-cashflow-input",
-  ];
+  const expectedFieldOrder = ["entry-fanda-input", "entry-report-input", "entry-networth-input", "entry-cashflow-input"];
   JSON.stringify(fieldOrder) === JSON.stringify(expectedFieldOrder)
     ? ok("記入欄が朝作戦&fanda→report→純資産額→入出金の順になっている")
     : fail(`記入欄の並び順が期待と違う: ${JSON.stringify(fieldOrder)}`);
 
   // iOS Safariはinputのフォーカス時、font-sizeが16px未満だと自動でズームしてしまう。
   // 記入欄はすべて16px以上になっているか。
-  const fontSizes = await page.evaluate((ids) =>
-    ids.map((id) => ({
-      id,
-      px: parseFloat(getComputedStyle(document.getElementById(id)).fontSize),
-    })),
-    ["entry-morning-input", "entry-report-input", "entry-networth-input", "entry-cashflow-input"]
+  const fontSizes = await page.evaluate(
+    (ids) =>
+      ids.map((id) => ({
+        id,
+        px: parseFloat(getComputedStyle(document.getElementById(id)).fontSize),
+      })),
+    ["entry-fanda-input", "entry-report-input", "entry-networth-input", "entry-cashflow-input"]
   );
   fontSizes.every((f) => f.px >= 16)
     ? ok("記入欄のフォントサイズが全て16px以上(iOSの自動ズーム対策)")
     : fail(`16px未満の記入欄がある(iOSでズームする): ${JSON.stringify(fontSizes)}`);
 
+  // 相場環境チップ: タップで選択、もう一度タップで選択解除できるか。
+  await page.click('#market-chips .chip[data-value="上昇"]');
+  await page.waitForTimeout(100);
+  let marketChipActive = await page.evaluate(
+    () => document.querySelector('#market-chips .chip[data-value="上昇"]').classList.contains("active")
+  );
+  marketChipActive ? ok("相場環境チップをタップすると選択状態になる") : fail("相場環境チップのタップが反映されない");
+
+  await page.click('#market-chips .chip[data-value="上昇"]');
+  await page.waitForTimeout(100);
+  marketChipActive = await page.evaluate(
+    () => document.querySelector('#market-chips .chip[data-value="上昇"]').classList.contains("active")
+  );
+  marketChipActive ? fail("もう一度タップしても選択が解除されない") : ok("同じチップをもう一度タップすると選択解除される");
+
   // 保存。
+  await page.click('#market-chips .chip[data-value="レンジ"]');
+  await page.fill("#entry-fanda-input", "日銀会合控え");
+  await page.click('#result-chips .chip[data-value="計画通り"]');
+  await page.fill("#entry-report-input", "利確ポイント良かった");
   await page.fill("#entry-networth-input", "1000000");
   await page.click("#entry-save-btn", { timeout: 5000 }).catch((e) => {
     fail(`保存ボタンをタップできない: ${e.message}`);
@@ -234,39 +251,65 @@ function ok(message) {
   const closedAfterCancel = await page.evaluate(() => document.getElementById("entry-modal-overlay").hidden);
   closedAfterCancel ? ok("キャンセルでモーダルが閉じた") : fail("キャンセルしてもモーダルが閉じない");
 
-  // 純資産額を空欄のまま、朝作戦&fanda/reportだけで保存できるか。
-  await page.evaluate(() => EntryModal.open("2026-01-15"));
+  // チップ+1行メモが正しく1本の文字列にエンコードされてシートへ保存されているか、
+  // 再度開いたときにチップ選択・テキストの両方として正しく復元されるか。
+  await page.evaluate(() => EntryModal.open("2026-01-10"));
   await page.waitForTimeout(100);
-  await page.fill("#entry-morning-input", "朝作戦テスト");
-  await page.fill("#entry-report-input", "reportテスト");
+  await page.click('#market-chips .chip[data-value="下降"]');
+  await page.fill("#entry-fanda-input", "米雇用統計控え");
+  await page.click('#result-chips .chip[data-value="反省"]');
+  await page.fill("#entry-report-input", "損切り遅れた");
   await page.fill("#entry-networth-input", "");
   await page.click("#entry-save-btn", { timeout: 5000 }).catch((e) => {
-    fail(`空欄保存で保存ボタンをタップできない: ${e.message}`);
+    fail(`チップ付き保存で保存ボタンをタップできない: ${e.message}`);
   });
   await page.waitForTimeout(300);
-  const blankNetWorthState = await page.evaluate(() => ({
-    modalClosed: document.getElementById("entry-modal-overlay").hidden,
-    entry: TradeData.getEntry("2026-01-15"),
-  }));
-  blankNetWorthState.modalClosed &&
-  blankNetWorthState.entry &&
-  blankNetWorthState.entry.netWorth === null &&
-  blankNetWorthState.entry.morning === "朝作戦テスト" &&
-  blankNetWorthState.entry.report === "reportテスト"
-    ? ok("純資産額を空欄のまま、朝作戦&fanda/reportだけで保存できた")
-    : fail(`空欄保存の結果が期待と違う: ${JSON.stringify(blankNetWorthState)}`);
+  const chipSavedState = await page.evaluate(() => TradeData.getEntry("2026-01-10"));
+  chipSavedState &&
+  chipSavedState.netWorth === null &&
+  chipSavedState.morning === "下降｜米雇用統計控え" &&
+  chipSavedState.report === "反省｜損切り遅れた"
+    ? ok(`チップ+1行メモが1本の文字列としてシートに保存された(morning: "${chipSavedState.morning}")`)
+    : fail(`チップ付き保存の結果が期待と違う: ${JSON.stringify(chipSavedState)}`);
 
-  // 再度開いたとき、純資産額は空欄のまま、朝作戦&fanda/reportは保持されているか。
-  await page.evaluate(() => EntryModal.open("2026-01-15"));
+  await page.evaluate(() => EntryModal.open("2026-01-10"));
   await page.waitForTimeout(100);
-  const reopenedState = await page.evaluate(() => ({
-    netWorth: document.getElementById("entry-networth-input").value,
-    morning: document.getElementById("entry-morning-input").value,
+  const chipReopenedState = await page.evaluate(() => ({
+    marketActive: document.querySelector('#market-chips .chip[data-value="下降"]').classList.contains("active"),
+    fanda: document.getElementById("entry-fanda-input").value,
+    resultActive: document.querySelector('#result-chips .chip[data-value="反省"]').classList.contains("active"),
     report: document.getElementById("entry-report-input").value,
   }));
-  reopenedState.netWorth === "" && reopenedState.morning === "朝作戦テスト" && reopenedState.report === "reportテスト"
-    ? ok("再度開いたときも純資産額は空欄、朝作戦&fanda/reportの内容は保持されていた")
-    : fail(`再オープン時の値が期待と違う: ${JSON.stringify(reopenedState)}`);
+  chipReopenedState.marketActive &&
+  chipReopenedState.fanda === "米雇用統計控え" &&
+  chipReopenedState.resultActive &&
+  chipReopenedState.report === "損切り遅れた"
+    ? ok("再度開いたときにチップ選択とテキストの両方が正しく復元された")
+    : fail(`再オープン時のチップ/テキスト復元が期待と違う: ${JSON.stringify(chipReopenedState)}`);
+  await page.click("#entry-cancel-btn");
+  await page.waitForTimeout(100);
+
+  // 後方互換: チップという概念が無かった頃の自由記述(チップ名と一致しない文字列)は、
+  // チップ未選択のままテキスト欄にそのまま表示され、データが失われないか。
+  await page.evaluate(() => {
+    window.__fakeRows.push(["2026-01-05", 900000, 0, "", "持ち越した売り玉朝利確。その後押し目買い目線", "旧形式のreport"]);
+  });
+  await page.evaluate(() => loadCalendarData());
+  await page.waitForTimeout(200);
+  await page.evaluate(() => EntryModal.open("2026-01-05"));
+  await page.waitForTimeout(100);
+  const legacyState = await page.evaluate(() => ({
+    marketChipSelected: !!document.querySelector("#market-chips .chip.active"),
+    fanda: document.getElementById("entry-fanda-input").value,
+    resultChipSelected: !!document.querySelector("#result-chips .chip.active"),
+    report: document.getElementById("entry-report-input").value,
+  }));
+  !legacyState.marketChipSelected &&
+  legacyState.fanda === "持ち越した売り玉朝利確。その後押し目買い目線" &&
+  !legacyState.resultChipSelected &&
+  legacyState.report === "旧形式のreport"
+    ? ok("チップ導入前の自由記述データも、チップ未選択のままテキスト欄にそのまま表示される(データ欠落なし)")
+    : fail(`旧形式データの表示が期待と違う: ${JSON.stringify(legacyState)}`);
   await page.click("#entry-cancel-btn");
   await page.waitForTimeout(100);
 

@@ -240,7 +240,7 @@ table th, table td {
    列の順番は cal-weekday と揃えること(日,月,火,水,木,金,土)。 */
 .calendar-grid {
   display: grid;
-  grid-template-columns: 0.85fr repeat(5, 1.06fr) 0.85fr;
+  grid-template-columns: 0.92fr repeat(5, 1.03fr) 0.92fr;
   gap: 4px;
 }
 
@@ -339,6 +339,43 @@ table th, table td {
   font-size: 1rem;
   font-family: inherit;
   resize: vertical;
+}
+
+.field-group {
+  margin-bottom: 12px;
+}
+
+.field-label {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.chip {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.field-group input[type="text"] {
+  margin-top: 0;
 }
 
 @media (max-width: 480px) {

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>トレード収支管理</title>
-<link rel="stylesheet" href="css/style.css?v=15">
+<link rel="stylesheet" href="css/style.css?v=16">
 </head>
 <body>
 <header class="app-header">
@@ -144,14 +144,29 @@
 <div id="entry-modal-overlay" class="modal-overlay" hidden>
   <div class="modal">
     <h2 id="entry-modal-date"></h2>
-    <label>
-      朝作戦&fanda
-      <textarea id="entry-morning-input" rows="3" placeholder="朝の作戦・ファンダメンタルズ確認"></textarea>
-    </label>
-    <label>
-      report
-      <textarea id="entry-report-input" rows="3" placeholder="振り返り・結果"></textarea>
-    </label>
+
+    <div class="field-group">
+      <div class="field-label">朝作戦&fanda</div>
+      <div class="chip-row" id="market-chips">
+        <button type="button" class="chip" data-value="上昇">上昇</button>
+        <button type="button" class="chip" data-value="下降">下降</button>
+        <button type="button" class="chip" data-value="レンジ">レンジ</button>
+        <button type="button" class="chip" data-value="様子見">様子見</button>
+      </div>
+      <input type="text" id="entry-fanda-input" placeholder="ファンダ材料(任意、例: 日銀会合控え)">
+    </div>
+
+    <div class="field-group">
+      <div class="field-label">report</div>
+      <div class="chip-row" id="result-chips">
+        <button type="button" class="chip" data-value="計画通り">計画通り</button>
+        <button type="button" class="chip" data-value="まずまず">まずまず</button>
+        <button type="button" class="chip" data-value="反省">反省</button>
+        <button type="button" class="chip" data-value="見送り">見送り</button>
+      </div>
+      <input type="text" id="entry-report-input" placeholder="一言メモ(任意)">
+    </div>
+
     <label>
       純資産額(空欄でも保存できます)
       <input type="number" id="entry-networth-input" placeholder="例: 1000000">
@@ -168,18 +183,18 @@
   </div>
 </div>
 
-<footer class="build-footer">build: 2026-09-24-analysis-metrics-15</footer>
+<footer class="build-footer">build: 2026-11-14-entry-chips-16</footer>
 
-<script src="js/vendor/chart.umd.js?v=15"></script>
-<script src="tools/import/import-data.js?v=15"></script>
-<script src="js/config.js?v=15"></script>
-<script src="js/sheets.js?v=15"></script>
-<script src="js/auth.js?v=15"></script>
-<script src="js/data.js?v=15"></script>
-<script src="js/calendar.js?v=15"></script>
-<script src="js/modal.js?v=15"></script>
-<script src="js/graph.js?v=15"></script>
-<script src="js/analysis.js?v=15"></script>
-<script src="js/app.js?v=15"></script>
+<script src="js/vendor/chart.umd.js?v=16"></script>
+<script src="tools/import/import-data.js?v=16"></script>
+<script src="js/config.js?v=16"></script>
+<script src="js/sheets.js?v=16"></script>
+<script src="js/auth.js?v=16"></script>
+<script src="js/data.js?v=16"></script>
+<script src="js/calendar.js?v=16"></script>
+<script src="js/modal.js?v=16"></script>
+<script src="js/graph.js?v=16"></script>
+<script src="js/analysis.js?v=16"></script>
+<script src="js/app.js?v=16"></script>
 </body>
 </html>

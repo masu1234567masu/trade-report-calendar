@@ -19,10 +19,13 @@ function formatYenCompact(n) {
 }
 
 // 要素がその幅に収まりきらない場合だけ、収まるまで少しずつ文字を縮小する。
+// フォントの描画結果はブラウザ・環境によって微妙に幅が変わりうるため、
+// 縮小後も下限(6px)を割り込まないよう明示的にクランプする。
 function shrinkToFit(el) {
+  const minSize = 6;
   let size = parseFloat(getComputedStyle(el).fontSize);
-  while (el.scrollWidth > el.clientWidth && size > 6) {
-    size -= 0.5;
+  while (el.scrollWidth > el.clientWidth && size > minSize) {
+    size = Math.max(minSize, size - 0.5);
     el.style.fontSize = size + "px";
   }
 }
